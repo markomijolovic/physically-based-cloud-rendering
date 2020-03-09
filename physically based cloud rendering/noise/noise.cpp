@@ -54,7 +54,7 @@ float worley(const glm::vec3& point, float cell_count)
 
 float perlin(const glm::vec3& p, float frequency, int octave_count)
 {
-	constexpr float octave_frequency_factor = 2;
+	constexpr auto octave_frequency_factor = 2.0F;
 
 	float sum{};
 	float weight_sum{};
@@ -62,7 +62,6 @@ float perlin(const glm::vec3& p, float frequency, int octave_count)
 
 	for (auto octave = 0; octave < octave_count; octave++)
 	{
-		// todo: is 3d perlin bugged in glm?
 		auto       point     = p * frequency;
 		const auto noise_val = glm::perlin(point, glm::vec3(frequency));
 
