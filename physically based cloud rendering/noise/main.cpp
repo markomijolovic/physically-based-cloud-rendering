@@ -103,8 +103,8 @@ int main()
 	{
 		auto width  = cloud_base_shape_texture_size * cloud_base_shape_texture_size;
 		auto height = cloud_base_shape_texture_size;
-		stbi_write_tga("noiseShape.tga", width, height, 4, cloud_base_shape_texels);
-		stbi_write_tga("noiseShapePacked.tga", width, height, 4, cloud_base_shape_texels_packed);
+		stbi_write_tga("noise_shape.tga", width, height, 4, cloud_base_shape_texels);
+		stbi_write_tga("noise_shape_packed.tga", width, height, 4, cloud_base_shape_texels_packed);
 	}
 
 
@@ -159,8 +159,8 @@ int main()
 	{
 		auto width  = cloud_erosion_texture_size * cloud_erosion_texture_size;
 		auto height = cloud_erosion_texture_size;
-		stbi_write_tga("noiseErosion.tga", width, height, 4, cloud_erosion_texels);
-		stbi_write_tga("noiseErosionPacked.tga", width, height, 4, cloud_erosion_texels_packed);
+		stbi_write_tga("noise_erosion.tga", width, height, 4, cloud_erosion_texels);
+		stbi_write_tga("noise_erosion_packed.tga", width, height, 4, cloud_erosion_texels_packed);
 	}
 
 	free(cloud_base_shape_texels);
