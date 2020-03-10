@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "noise", "noise\noise.vcxproj", "{EBFF44A0-6232-4775-B362-C9347BAC5F4C}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "clouds", "clouds\clouds.vcxproj", "{C1212E08-1B5D-49B8-B120-261581F1EEDA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{EBFF44A0-6232-4775-B362-C9347BAC5F4C}.Release|x64.Build.0 = Release|x64
 		{EBFF44A0-6232-4775-B362-C9347BAC5F4C}.Release|x86.ActiveCfg = Release|Win32
 		{EBFF44A0-6232-4775-B362-C9347BAC5F4C}.Release|x86.Build.0 = Release|Win32
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Debug|x64.ActiveCfg = Debug|x64
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Debug|x64.Build.0 = Debug|x64
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Debug|x86.ActiveCfg = Debug|Win32
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Debug|x86.Build.0 = Debug|Win32
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Release|x64.ActiveCfg = Release|x64
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Release|x64.Build.0 = Release|x64
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Release|x86.ActiveCfg = Release|Win32
+		{C1212E08-1B5D-49B8-B120-261581F1EEDA}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
