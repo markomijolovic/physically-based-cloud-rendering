@@ -19,4 +19,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="cloud_vertex.glsl">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="cloud_fragment.glsl">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

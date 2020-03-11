@@ -2,6 +2,10 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
+#include <fstream>
+#include <sstream>
+
+
 #include "glbinding/gl/gl.h"
 
 #include "glbinding/glbinding.h"
@@ -12,6 +16,16 @@
 
 constexpr auto screen_width = 1280;
 constexpr auto screen_height = 720;
+
+constexpr float full_screen_quad[][3] = 
+{
+	{-1.0F, -1.0F, 0.0F},
+	{1.0F, -1.0F, 0.0F},
+	{1.0F, 1.0F, 0.0F},
+	{-1.0F, 1.0F, 0.0F}
+};
+
+constexpr int quad_indices[] = { 0, 1, 2, 0, 2, 3 };
 
 int main()
 {
@@ -33,43 +47,103 @@ int main()
 
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0); // disable v-sync
-
 	glbinding::initialize(glfwGetProcAddress);
-
 	gl::glViewport(0, 0, screen_width, screen_height);
 
 	// load textures
 	stbi_set_flip_vertically_on_load(1);
+	gl::GLuint cloud_base_texture;	// load base cloud shape texture
 
-	int width;
-	int height;
-	int number_of_components;
-	const auto cloud_base_image = stbi_load("textures/noise_shape.tga", &width, &height, &number_of_components, 0);
+	{
+		int width;
+		int height;
+		int number_of_components;
+		const auto cloud_base_image = stbi_load("textures/noise_shape.tga", &width, &height, &number_of_components, 0);
 
-	gl::GLuint cloud_base_texture;
-	gl::glGenTextures(1, &cloud_base_texture);
-	gl::glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_base_texture);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
-	gl::glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 128, 128, 128, 0, gl::GLenum::GL_RGBA,
-	             gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
+		gl::glGenTextures(1, &cloud_base_texture);
+		gl::glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_base_texture);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		gl::glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 128, 128, 128, 0, gl::GLenum::GL_RGBA,
+			gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
 
-	const auto cloud_erosion_image = stbi_load("textures/noise_erosion.tga", &width, &height, &number_of_components, 0);
+		stbi_image_free(cloud_base_image);
+	}
 
-	gl::GLuint cloud_erosion_texture;
-	gl::glGenTextures(1, &cloud_erosion_texture);
-	gl::glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
-	gl::glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 32, 32, 32, 0, gl::GLenum::GL_RGBA,
-	             gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
+	gl::GLuint cloud_erosion_texture;	// load cloud erosion texture
+	{
+		int width;
+		int height;
+		int number_of_components;
+		const auto cloud_erosion_image = stbi_load("textures/noise_erosion.tga", &width, &height, &number_of_components, 0);
 
+		gl::glGenTextures(1, &cloud_erosion_texture);
+		gl::glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		gl::glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 32, 32, 32, 0, gl::GLenum::GL_RGBA,
+			gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
+
+		stbi_image_free(cloud_erosion_image);
+	}
+
+	// create buffers for full screen quad
+	gl::GLuint vbo, vao, ebo;
+	gl::glGenBuffers(1, &vbo);
+	gl::glGenBuffers(1, &ebo);
+	gl::glGenVertexArrays(1, &vao);
+
+	gl::glBindVertexArray(vao);
+	gl::glBindBuffer(gl::GLenum::GL_ARRAY_BUFFER, vbo);
+	gl::glBufferData(gl::GLenum::GL_ARRAY_BUFFER, 12 * sizeof(float), full_screen_quad, gl::GLenum::GL_STATIC_DRAW);
+	gl::glBindBuffer(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, ebo);
+	gl::glBufferData(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), quad_indices, gl::GLenum::GL_STATIC_DRAW);
+	gl::glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 0, reinterpret_cast<void*>(0));
+	gl::glEnableVertexAttribArray(0);
+
+	// load cloud shader
+	std::string vertex_code{}, fragment_code{};
+
+	std::ifstream vertex_file{ "cloud_vertex.glsl" };
+	std::ifstream fragment_file{ "cloud_fragment.glsl" };
+
+	std::stringstream vertex_stream{}, fragment_stream{};
+	vertex_stream << vertex_file.rdbuf();
+	fragment_stream << fragment_file.rdbuf();
+
+	vertex_code = vertex_stream.str();
+	fragment_code = fragment_stream.str();
+
+	auto p_vertex_data = vertex_code.data();
+	auto p_fragment_data = fragment_code.data();
+
+	auto vertex = gl::glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
+	gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
+	gl::glCompileShader(vertex);
+
+	auto fragment = gl::glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
+	gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
+	gl::glCompileShader(fragment);
+
+	auto program = gl::glCreateProgram();
+	gl::glAttachShader(program, vertex);
+	gl::glAttachShader(program, fragment);
+	gl::glLinkProgram(program);
+
+	gl::glDeleteShader(vertex);
+	gl::glDeleteShader(fragment);
+
+	gl::glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+	
 	while (glfwWindowShouldClose(window) == 0)
 	{
 		glfwPollEvents();
 
 		// do stuff
-
+		gl::glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
+		gl::glUseProgram(program);
+		gl::glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+		
 		glfwSwapBuffers(window);
 	}
 
