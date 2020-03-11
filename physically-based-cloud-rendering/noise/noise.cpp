@@ -1,4 +1,5 @@
 #include "noise.hpp"
+
 #include <algorithm>
 
 float hash(float n)

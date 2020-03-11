@@ -1,6 +1,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+
 #include "noise.hpp"
+
+#include "stb_image_write.h"
 
 float remap(float value, float min, float max, float new_min, float new_max)
 {
