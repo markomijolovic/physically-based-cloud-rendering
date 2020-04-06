@@ -33,11 +33,11 @@ void set_uniform(gl::GLuint id, const std::string& name, T&& value)
 	{
 		gl::glUniform1i(gl::glGetUniformLocation(id, name.c_str()), static_cast<gl::GLint>(value));
 	}
-	else if constexpr (std::is_same_v<type, int>)
+	else if constexpr (std::is_same_v<type, int32_t>)
 	{
 		gl::glUniform1i(gl::glGetUniformLocation(id, name.c_str()), value);
 	}
-	else if constexpr (std::is_same_v<type, unsigned int>)
+	else if constexpr (std::is_same_v<type, uint32_t>)
 	{
 		gl::glUniform1i(gl::glGetUniformLocation(id, name.c_str()), static_cast<int>(value));
 	}

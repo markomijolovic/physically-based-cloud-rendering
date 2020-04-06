@@ -6,8 +6,6 @@
 
 #include <chrono>
 
-#include <iostream>
-
 #include "camera.hpp"
 
 #include "glbinding/gl/gl.h"
@@ -23,6 +21,9 @@
 #include "transforms.hpp"
 
 #include "uniforms.hpp"
+
+#include "aabb.hpp"
+#include "framebuffer.hpp"
 
 constexpr auto screen_width  = 1280;
 constexpr auto screen_height = 720;
@@ -100,7 +101,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 		glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 128, 128, 128, 0, gl::GLenum::GL_RGBA,
-		             gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
+			gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
 
 		log_opengl_error();
 		stbi_image_free(cloud_base_image);
@@ -114,14 +115,14 @@ int main()
 		int        height;
 		int        number_of_components;
 		const auto cloud_erosion_image = stbi_load("textures/noise_erosion.tga", &width, &height, &number_of_components,
-		                                           0);
+			0);
 
 		gl::glGenTextures(1, &cloud_erosion_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 		glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 32, 32, 32, 0, gl::GLenum::GL_RGBA,
-		             gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
+			gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
 
 		log_opengl_error();
 		stbi_image_free(cloud_erosion_image);
@@ -144,59 +145,112 @@ int main()
 	gl::glEnableVertexAttribArray(0);
 	log_opengl_error();
 
+	gl::GLuint cloud_shader;
 	// load cloud shader
-	std::string vertex_code{};
-	std::string fragment_code{};
+	{
+		std::string vertex_code{};
+		std::string fragment_code{};
 
-	std::ifstream vertex_file{"cloud_vertex.glsl"};
-	std::ifstream fragment_file{"cloud_fragment.glsl"};
+		std::ifstream vertex_file{ "cloud_vertex.glsl" };
+		std::ifstream fragment_file{ "cloud_fragment.glsl" };
 
-	std::stringstream vertex_stream{};
-	std::stringstream fragment_stream{};
-	vertex_stream << vertex_file.rdbuf();
-	fragment_stream << fragment_file.rdbuf();
+		std::stringstream vertex_stream{};
+		std::stringstream fragment_stream{};
+		vertex_stream << vertex_file.rdbuf();
+		fragment_stream << fragment_file.rdbuf();
 
-	vertex_code   = vertex_stream.str();
-	fragment_code = fragment_stream.str();
+		vertex_code = vertex_stream.str();
+		fragment_code = fragment_stream.str();
 
-	auto p_vertex_data   = vertex_code.data();
-	auto p_fragment_data = fragment_code.data();
+		auto p_vertex_data = vertex_code.data();
+		auto p_fragment_data = fragment_code.data();
 
-	auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
-	gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
-	gl::glCompileShader(vertex);
+		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
+		gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
+		gl::glCompileShader(vertex);
 
-	auto fragment = glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
-	gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
-	gl::glCompileShader(fragment);
+		auto fragment = glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
+		gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
+		gl::glCompileShader(fragment);
 
-	auto program = gl::glCreateProgram();
-	gl::glAttachShader(program, vertex);
-	gl::glAttachShader(program, fragment);
-	gl::glLinkProgram(program);
+		cloud_shader = gl::glCreateProgram();
+		gl::glAttachShader(cloud_shader, vertex);
+		gl::glAttachShader(cloud_shader, fragment);
+		gl::glLinkProgram(cloud_shader);
 
-	gl::glDeleteShader(vertex);
-	gl::glDeleteShader(fragment);
+		gl::glDeleteShader(vertex);
+		gl::glDeleteShader(fragment);
+	}
+
+	// load raymarching shader
+	gl::GLuint raymarching_shader;
+	{
+		std::string vertex_code{};
+		std::string fragment_code{};
+
+		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+		std::ifstream fragment_file{ "raymarch_fragment.glsl" };
+
+		std::stringstream vertex_stream{};
+		std::stringstream fragment_stream{};
+		vertex_stream << vertex_file.rdbuf();
+		fragment_stream << fragment_file.rdbuf();
+
+		vertex_code = vertex_stream.str();
+		fragment_code = fragment_stream.str();
+
+		auto p_vertex_data = vertex_code.data();
+		auto p_fragment_data = fragment_code.data();
+
+		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
+		gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
+		gl::glCompileShader(vertex);
+
+		auto fragment = glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
+		gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
+		gl::glCompileShader(fragment);
+
+		raymarching_shader = gl::glCreateProgram();
+		gl::glAttachShader(raymarching_shader, vertex);
+		gl::glAttachShader(raymarching_shader, fragment);
+		gl::glLinkProgram(raymarching_shader);
+
+		gl::glDeleteShader(vertex);
+		gl::glDeleteShader(fragment);
+	}
 
 	gl::glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
 
 	log_opengl_error();
 
+	// create framebuffers
+	framebuffer_t framebuffer{ screen_width, screen_height, 1, true };
+	
 	auto delta_time = 1.0F / 60.0F;
 
 	while (glfwWindowShouldClose(window) == 0)
 	{
 		glfwPollEvents();
+		
 		auto start = std::chrono::high_resolution_clock::now();
 		process_input(delta_time);
 
+		// draw basic quad
+		framebuffer.bind();
 		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
-		gl::glUseProgram(program);
-		set_uniform(program, "projection", camera.projection);
-		set_uniform(program, "view", camera.transform.get_view_matrix());
-		set_uniform(program, "model", glm::mat4x4{1.0F});
+		gl::glUseProgram(cloud_shader);
+		set_uniform(cloud_shader, "projection", camera.projection);
+		set_uniform(cloud_shader, "view", camera.transform.get_view_matrix());
+		set_uniform(cloud_shader, "model", glm::mat4x4{1.0F});
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
+		framebuffer.unbind();
+		
+		// raymarching
+
+		gl::glUseProgram(raymarching_shader);
+		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+		
 		auto end   = std::chrono::high_resolution_clock::now();
 		delta_time = std::chrono::duration<float>(end - start).count();
 
