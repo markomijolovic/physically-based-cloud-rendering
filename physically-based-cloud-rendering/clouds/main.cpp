@@ -12,7 +12,7 @@
 
 #include "stb_image.h"
 
-constexpr auto screen_width = 1280;
+constexpr auto screen_width  = 1280;
 constexpr auto screen_height = 720;
 
 constexpr float full_screen_quad[][3] =
@@ -53,9 +53,9 @@ int main()
 	gl::GLuint cloud_base_texture; // load base cloud shape texture
 
 	{
-		int width;
-		int height;
-		int number_of_components;
+		int        width;
+		int        height;
+		int        number_of_components;
 		const auto cloud_base_image = stbi_load("textures/noise_shape.tga", &width, &height, &number_of_components, 0);
 
 		gl::glGenTextures(1, &cloud_base_texture);
@@ -70,9 +70,9 @@ int main()
 
 	gl::GLuint cloud_erosion_texture; // load cloud erosion texture
 	{
-		int width;
-		int height;
-		int number_of_components;
+		int        width;
+		int        height;
+		int        number_of_components;
 		const auto cloud_erosion_image = stbi_load("textures/noise_erosion.tga", &width, &height, &number_of_components,
 		                                           0);
 
@@ -114,10 +114,10 @@ int main()
 	vertex_stream << vertex_file.rdbuf();
 	fragment_stream << fragment_file.rdbuf();
 
-	vertex_code = vertex_stream.str();
+	vertex_code   = vertex_stream.str();
 	fragment_code = fragment_stream.str();
 
-	auto p_vertex_data = vertex_code.data();
+	auto p_vertex_data   = vertex_code.data();
 	auto p_fragment_data = fragment_code.data();
 
 	auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);

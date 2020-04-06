@@ -10,7 +10,7 @@ float remap(float value, float min, float max, float new_min, float new_max)
 // generates cloud shape and erosion textures, both packed and unpacked
 int main()
 {
-	stbi_flip_vertically_on_write(true);
+	stbi_flip_vertically_on_write(1);
 
 	// frequency multiplication. No boundary check etc. but fine for this small tool.
 	const float frequency_mul[6] = {2.0F, 8.0F, 14.0F, 20.0F, 26.0F, 32.0F};
@@ -18,13 +18,13 @@ int main()
 
 	// cloud base shape
 	// note: all channels could be combined once here to reduce memory bandwidth requirements.
-	auto cloud_base_shape_texture_size = 128;
+	auto cloud_base_shape_texture_size  = 128;
 	int  cloud_base_shape_row_bytes     = cloud_base_shape_texture_size * sizeof(unsigned char) * 4;
 	auto cloud_base_shape_slice_bytes   = cloud_base_shape_row_bytes * cloud_base_shape_texture_size;
 	auto cloud_base_shape_volume_bytes  = cloud_base_shape_slice_bytes * cloud_base_shape_texture_size;
-	auto cloud_base_shape_texels       = static_cast<unsigned char*>(malloc(cloud_base_shape_volume_bytes));
+	auto cloud_base_shape_texels        = static_cast<unsigned char*>(malloc(cloud_base_shape_volume_bytes));
 	auto cloud_base_shape_texels_packed = static_cast<unsigned char*>(malloc(cloud_base_shape_volume_bytes));
-	
+
 	for (auto s = 0; s < cloud_base_shape_texture_size; s++)
 	{
 		const auto norm_fact = glm::vec3(1.0F / float(cloud_base_shape_texture_size));
@@ -36,7 +36,7 @@ int main()
 
 				// perlin fBm
 				const auto octave_count = 3;
-				const auto frequency   = 8.0F;
+				const auto frequency    = 8.0F;
 				auto       perlin_noise = perlin(coord, frequency, octave_count);
 
 				auto perlin_worley_noise = 0.0F;
@@ -75,7 +75,8 @@ int main()
 				auto worley_fbm2 = worley_noise3 * 0.75F + worley_noise4 * 0.25F;
 				// cell_count = 4 -> worley_noise5 is just noise due to sampling frequency = texel frequency so only take into account 2 frequencies for fBm
 
-				auto addr = r * cloud_base_shape_texture_size * cloud_base_shape_texture_size + t * cloud_base_shape_texture_size +
+				auto addr = r * cloud_base_shape_texture_size * cloud_base_shape_texture_size + t *
+				            cloud_base_shape_texture_size +
 				            s;
 
 				addr *= 4;
@@ -88,10 +89,10 @@ int main()
 				{
 					// pack the channels for direct usage in shader
 					auto low_freq_fbm = worley_fbm0 * 0.625F + worley_fbm1 * 0.25F + worley_fbm2 * 0.125F;
-					auto base_cloud  = perlin_worley_noise;
-					value           = remap(base_cloud, -(1.0F - low_freq_fbm), 1.0F, 0.0F, 1.0F);
+					auto base_cloud   = perlin_worley_noise;
+					value             = remap(base_cloud, -(1.0F - low_freq_fbm), 1.0F, 0.0F, 1.0F);
 				}
-				
+
 				cloud_base_shape_texels_packed[addr]     = unsigned char(255.0f * value);
 				cloud_base_shape_texels_packed[addr + 1] = unsigned char(255.0f * value);
 				cloud_base_shape_texels_packed[addr + 2] = unsigned char(255.0f * value);
@@ -99,7 +100,7 @@ int main()
 			}
 		}
 	}
-	
+
 	{
 		auto width  = cloud_base_shape_texture_size * cloud_base_shape_texture_size;
 		auto height = cloud_base_shape_texture_size;
@@ -114,9 +115,9 @@ int main()
 	int  cloud_erosion_row_bytes     = cloud_erosion_texture_size * sizeof(unsigned char) * 4;
 	auto cloud_erosion_slice_bytes   = cloud_erosion_row_bytes * cloud_erosion_texture_size;
 	auto cloud_erosion_volume_bytes  = cloud_erosion_slice_bytes * cloud_erosion_texture_size;
-	auto cloud_erosion_texels       = static_cast<unsigned char*>(malloc(cloud_erosion_volume_bytes));
+	auto cloud_erosion_texels        = static_cast<unsigned char*>(malloc(cloud_erosion_volume_bytes));
 	auto cloud_erosion_texels_packed = static_cast<unsigned char*>(malloc(cloud_erosion_volume_bytes));
-	
+
 	for (auto s = 0; s < cloud_erosion_texture_size; s++)
 	{
 		const auto norm_fact = glm::vec3(1.0F / float(cloud_erosion_texture_size));
@@ -137,7 +138,8 @@ int main()
 				auto        worley_fbm2   = worley_noise2 * 0.75F + worley_noise3 * 0.25F;
 				// cell_count = 4 -> worley_noise4 is just noise due to sampling frequency = texel frequency so only take into account 2 frequencies for fBm
 
-				auto addr = r * cloud_erosion_texture_size * cloud_erosion_texture_size + t * cloud_erosion_texture_size + s;
+				auto addr = r * cloud_erosion_texture_size * cloud_erosion_texture_size + t * cloud_erosion_texture_size
+				            + s;
 				addr *= 4;
 				cloud_erosion_texels[addr]     = unsigned char(255.0f * worley_fbm0);
 				cloud_erosion_texels[addr + 1] = unsigned char(255.0f * worley_fbm1);
