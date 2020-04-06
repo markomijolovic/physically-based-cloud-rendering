@@ -10,6 +10,8 @@
 
 #include "GLFW/glfw3.h"
 
+#include "log.hpp"
+
 #include "stb_image.h"
 
 constexpr auto screen_width  = 1280;
@@ -47,12 +49,15 @@ int main()
 	glfwSwapInterval(0); // disable v-sync
 	glbinding::initialize(glfwGetProcAddress);
 	gl::glViewport(0, 0, screen_width, screen_height);
+	log_opengl_error();
 
 	// load textures
 	stbi_set_flip_vertically_on_load(1);
 	gl::GLuint cloud_base_texture; // load base cloud shape texture
 
 	{
+		log("loading base cloud shape texture");
+		
 		int        width;
 		int        height;
 		int        number_of_components;
@@ -65,11 +70,14 @@ int main()
 		glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 128, 128, 128, 0, gl::GLenum::GL_RGBA,
 		             gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
 
+		log_opengl_error();
 		stbi_image_free(cloud_base_image);
 	}
 
 	gl::GLuint cloud_erosion_texture; // load cloud erosion texture
 	{
+		log("loading cloud erosion texture");
+		
 		int        width;
 		int        height;
 		int        number_of_components;
@@ -83,6 +91,7 @@ int main()
 		glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 32, 32, 32, 0, gl::GLenum::GL_RGBA,
 		             gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
 
+		log_opengl_error();
 		stbi_image_free(cloud_erosion_image);
 	}
 
@@ -101,6 +110,7 @@ int main()
 	glBufferData(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), quad_indices, gl::GLenum::GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 0, reinterpret_cast<void*>(0));
 	gl::glEnableVertexAttribArray(0);
+	log_opengl_error();
 
 	// load cloud shader
 	std::string vertex_code{};
@@ -137,6 +147,8 @@ int main()
 	gl::glDeleteShader(fragment);
 
 	gl::glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+
+	log_opengl_error();
 
 	while (glfwWindowShouldClose(window) == 0)
 	{

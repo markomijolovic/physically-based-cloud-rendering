@@ -139,12 +139,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="log.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stb_image_implementation.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cloud_fragment.glsl" />
     <None Include="cloud_vertex.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="log.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

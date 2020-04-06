@@ -21,6 +21,9 @@
     <ClCompile Include="stb_image_implementation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="cloud_vertex.glsl">
@@ -29,5 +32,10 @@
     <None Include="cloud_fragment.glsl">
       <Filter>Source Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="log.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
