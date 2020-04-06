@@ -4,6 +4,12 @@
 
 #include <sstream>
 
+#include <chrono>
+
+#include <iostream>
+
+#include "camera.hpp"
+
 #include "glbinding/gl/gl.h"
 
 #include "glbinding/glbinding.h"
@@ -13,6 +19,10 @@
 #include "log.hpp"
 
 #include "stb_image.h"
+
+#include "transforms.hpp"
+
+#include "uniforms.hpp"
 
 constexpr auto screen_width  = 1280;
 constexpr auto screen_height = 720;
@@ -26,6 +36,24 @@ constexpr float full_screen_quad[][3] =
 };
 
 constexpr int quad_indices[] = {0, 1, 2, 0, 2, 3};
+
+camera_t camera
+{
+	perspective(90.0F, screen_width / screen_height, 0.01F, 1000.0F),
+	{}
+};
+
+std::unordered_map<int, bool> buttons{};
+
+bool  first_mouse{true};
+float x{};
+float y{};
+float x_offset{};
+float y_offset{};
+
+static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
+static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
+static void process_input(float dt);
 
 int main()
 {
@@ -45,6 +73,10 @@ int main()
 		std::exit(-1);
 	}
 
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetKeyCallback(window, key_callback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0); // disable v-sync
 	glbinding::initialize(glfwGetProcAddress);
@@ -57,7 +89,7 @@ int main()
 
 	{
 		log("loading base cloud shape texture");
-		
+
 		int        width;
 		int        height;
 		int        number_of_components;
@@ -77,7 +109,7 @@ int main()
 	gl::GLuint cloud_erosion_texture; // load cloud erosion texture
 	{
 		log("loading cloud erosion texture");
-		
+
 		int        width;
 		int        height;
 		int        number_of_components;
@@ -150,18 +182,119 @@ int main()
 
 	log_opengl_error();
 
+	auto delta_time = 1.0F / 60.0F;
+
 	while (glfwWindowShouldClose(window) == 0)
 	{
 		glfwPollEvents();
+		auto start = std::chrono::high_resolution_clock::now();
+		process_input(delta_time);
 
-		// do stuff
 		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(program);
+		set_uniform(program, "projection", camera.projection);
+		set_uniform(program, "view", camera.transform.get_view_matrix());
+		set_uniform(program, "model", glm::mat4x4{1.0F});
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+
+		auto end   = std::chrono::high_resolution_clock::now();
+		delta_time = std::chrono::duration<float>(end - start).count();
 
 		glfwSwapBuffers(window);
 	}
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
+}
+
+static void process_input(float dt)
+{
+	auto view_matrix = camera.transform.get_view_matrix();
+
+	const auto right   = glm::vec3{view_matrix[0][0], view_matrix[1][0], view_matrix[2][0]};
+	const auto up      = glm::vec3{view_matrix[0][1], view_matrix[1][1], view_matrix[2][1]};
+	const auto forward = -glm::vec3{view_matrix[0][2], view_matrix[1][2], view_matrix[2][2]};
+
+
+	glm::vec3 trans{};
+
+	if (buttons[GLFW_KEY_W])
+	{
+		trans += forward * dt * camera.movement_speed;
+	}
+
+	if (buttons[GLFW_KEY_S])
+	{
+		trans -= forward * dt * camera.movement_speed;
+	}
+
+	if (buttons[GLFW_KEY_D])
+	{
+		trans += right * dt * camera.movement_speed;
+	}
+
+	if (buttons[GLFW_KEY_A])
+	{
+		trans -= right * dt * camera.movement_speed;
+	}
+
+	if (buttons[GLFW_KEY_Q])
+	{
+		trans += up * dt * camera.movement_speed;
+	}
+
+	if (buttons[GLFW_KEY_E])
+	{
+		trans -= up * dt * camera.movement_speed;
+	}
+
+	camera.transform.position = translate(trans) * camera.transform.position;
+
+	if (x_offset != 0.0F)
+	{
+		camera.transform.rotation.y -= x_offset * camera.mouse_sensitivity;
+		camera.transform.rotation.y = std::fmod(camera.transform.rotation.y, 360.0F);
+		x_offset                    = 0.0F;
+	}
+
+	if (y_offset != 0.0F)
+	{
+		camera.transform.rotation.x -= y_offset * camera.mouse_sensitivity;
+		camera.transform.rotation.x = std::clamp(camera.transform.rotation.x, -89.0F, 89.0F);
+		y_offset                    = 0.0F;
+	}
+}
+
+static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	{
+		glfwSetWindowShouldClose(window, 1);
+		return;
+	}
+
+	if (action == GLFW_PRESS)
+	{
+		buttons[key] = true;
+	}
+	else if (action == GLFW_RELEASE)
+	{
+		buttons[key] = false;
+	}
+}
+
+static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos)
+{
+	if (first_mouse)
+	{
+		x           = static_cast<float>(x_pos);
+		y           = static_cast<float>(y_pos);
+		first_mouse = false;
+	}
+
+	x_offset = static_cast<float>(x_pos) - x;
+	y_offset = static_cast<float>(y_pos) - y;
+
+	x = static_cast<float>(x_pos);
+	y = static_cast<float>(y_pos);
 }
