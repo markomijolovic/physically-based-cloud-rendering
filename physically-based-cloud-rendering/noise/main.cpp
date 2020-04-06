@@ -1,5 +1,3 @@
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-
 #include "noise.hpp"
 
 #include "stb_image_write.h"
@@ -12,7 +10,7 @@ float remap(float value, float min, float max, float new_min, float new_max)
 // generates cloud shape and erosion textures, both packed and unpacked
 int main()
 {
-	stbi__flip_vertically_on_write = true;
+	stbi_flip_vertically_on_write(true);
 
 	// frequency multiplication. No boundary check etc. but fine for this small tool.
 	const float frequency_mul[6] = {2.0F, 8.0F, 14.0F, 20.0F, 26.0F, 32.0F};
