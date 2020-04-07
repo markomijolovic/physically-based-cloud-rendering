@@ -36,7 +36,7 @@ constexpr float full_screen_quad[][5] =
 	{-1.0F, 1.0F, 0.0F, 0.0F, 1.0F}
 };
 
-constexpr int quad_indices[] = {0, 1, 2, 0, 2, 3};
+constexpr int quad_indices[] = {0, 1, 2, 2, 3, 0};
 
 camera_t camera
 {
@@ -253,7 +253,11 @@ int main()
 		gl::glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(raymarching_shader);
 		framebuffer.colour_attachments.front().bind(0);
-		set_uniform(cloud_shader, "full_screen", 0);
+		set_uniform(raymarching_shader, "full_screen", 0);
+		set_uniform(raymarching_shader, "projection", camera.projection);
+		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
+		set_uniform(raymarching_shader, "viewport", glm::vec2{1280, 720});
+		set_uniform(raymarching_shader, "camera_pos", glm::vec3{ camera.transform.position });
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		auto end   = std::chrono::high_resolution_clock::now();
