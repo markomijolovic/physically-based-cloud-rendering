@@ -2,7 +2,11 @@
 
 out vec4 fragment_colour;
 
+in vec2 uvs;
+
+uniform sampler2D full_screen;
+
 void main()
 {
-	fragment_colour = vec4(1, 0, 0, 1);
+	fragment_colour = texture(full_screen, uvs);
 }

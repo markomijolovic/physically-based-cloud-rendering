@@ -28,19 +28,19 @@
 constexpr auto screen_width  = 1280;
 constexpr auto screen_height = 720;
 
-constexpr float full_screen_quad[][3] =
+constexpr float full_screen_quad[][5] =
 {
-	{-1.0F, -1.0F, 0.0F},
-	{1.0F, -1.0F, 0.0F},
-	{1.0F, 1.0F, 0.0F},
-	{-1.0F, 1.0F, 0.0F}
+	{-1.0F, -1.0F, 0.0F, 0.0F, 0.0F},
+	{1.0F, -1.0F, 0.0F, 1.0F, 0.0F},
+	{1.0F, 1.0F, 0.0F, 1.0F, 1.0F},
+	{-1.0F, 1.0F, 0.0F, 0.0F, 1.0F}
 };
 
 constexpr int quad_indices[] = {0, 1, 2, 0, 2, 3};
 
 camera_t camera
 {
-	perspective(90.0F, screen_width / screen_height, 0.01F, 1000.0F),
+	perspective(90.0F, static_cast<float>(screen_width) / screen_height, 0.01F, 1000.0F),
 	{}
 };
 
@@ -138,11 +138,13 @@ int main()
 
 	gl::glBindVertexArray(vao);
 	glBindBuffer(gl::GLenum::GL_ARRAY_BUFFER, vbo);
-	glBufferData(gl::GLenum::GL_ARRAY_BUFFER, 12 * sizeof(float), full_screen_quad, gl::GLenum::GL_STATIC_DRAW);
+	glBufferData(gl::GLenum::GL_ARRAY_BUFFER, 20 * sizeof(float), full_screen_quad, gl::GLenum::GL_STATIC_DRAW);
 	glBindBuffer(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glBufferData(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), quad_indices, gl::GLenum::GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 0, reinterpret_cast<void*>(0));
+	glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 5*sizeof(float), reinterpret_cast<void*>(0));
+	glVertexAttribPointer(1, 2, gl::GLenum::GL_FLOAT, false, 5*sizeof(float), reinterpret_cast<void*>(3 * sizeof(float)));
 	gl::glEnableVertexAttribArray(0);
+	gl::glEnableVertexAttribArray(1);
 	log_opengl_error();
 
 	gl::GLuint cloud_shader;
@@ -248,9 +250,12 @@ int main()
 		
 		// raymarching
 
+		gl::glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(raymarching_shader);
+		framebuffer.colour_attachments.front().bind(0);
+		set_uniform(cloud_shader, "full_screen", 0);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
-		
+
 		auto end   = std::chrono::high_resolution_clock::now();
 		delta_time = std::chrono::duration<float>(end - start).count();
 
