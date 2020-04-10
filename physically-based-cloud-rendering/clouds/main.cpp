@@ -23,6 +23,7 @@
 #include "uniforms.hpp"
 
 #include "aabb.hpp"
+
 #include "framebuffer.hpp"
 
 constexpr auto screen_width  = 1280;
@@ -40,8 +41,13 @@ constexpr int quad_indices[] = {0, 1, 2, 2, 3, 0};
 
 camera_t camera
 {
-	perspective(90.0F, static_cast<float>(screen_width) / screen_height, 0.01F, 1000.0F),
-	{}
+	perspective(90.0F, static_cast<float>(screen_width) / screen_height, 0.01F, 100000.0F),
+	{
+		{
+			0.0F, 10.0F, 0.0F, 1.0F
+		},
+		{}, {1.0F, 1.0F, 1.0F}
+	}
 };
 
 std::unordered_map<int, bool> buttons{};
@@ -101,7 +107,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 		glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 128, 128, 128, 0, gl::GLenum::GL_RGBA,
-			gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
+		             gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
 
 		log_opengl_error();
 		stbi_image_free(cloud_base_image);
@@ -115,17 +121,40 @@ int main()
 		int        height;
 		int        number_of_components;
 		const auto cloud_erosion_image = stbi_load("textures/noise_erosion.tga", &width, &height, &number_of_components,
-			0);
+		                                           0);
 
 		gl::glGenTextures(1, &cloud_erosion_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 		glTexImage3D(gl::GLenum::GL_TEXTURE_3D, 0, gl::GLenum::GL_RGBA8, 32, 32, 32, 0, gl::GLenum::GL_RGBA,
-			gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
+		             gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
 
 		log_opengl_error();
 		stbi_image_free(cloud_erosion_image);
+	}
+
+	// load weather map
+	gl::GLuint weather_map_texture;
+	{
+		log("loading weather map texture");
+
+		int        width;
+		int        height;
+		int        number_of_components;
+		const auto weather_map_data = stbi_load("textures/weather_map.png", &width, &height, &number_of_components,
+			0);
+		gl::glGenTextures(1, &weather_map_texture);
+		gl::glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
+
+		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+		gl::glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, 520, 520, 0, gl::GLenum::GL_RGBA, gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+
+		log_opengl_error();
+		stbi_image_free(weather_map_data);
 	}
 
 	// create buffers for full screen quad
@@ -141,8 +170,9 @@ int main()
 	glBufferData(gl::GLenum::GL_ARRAY_BUFFER, 20 * sizeof(float), full_screen_quad, gl::GLenum::GL_STATIC_DRAW);
 	glBindBuffer(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, ebo);
 	glBufferData(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), quad_indices, gl::GLenum::GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 5*sizeof(float), reinterpret_cast<void*>(0));
-	glVertexAttribPointer(1, 2, gl::GLenum::GL_FLOAT, false, 5*sizeof(float), reinterpret_cast<void*>(3 * sizeof(float)));
+	glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 5 * sizeof(float), reinterpret_cast<void*>(0));
+	glVertexAttribPointer(1, 2, gl::GLenum::GL_FLOAT, false, 5 * sizeof(float),
+	                      reinterpret_cast<void*>(3 * sizeof(float)));
 	gl::glEnableVertexAttribArray(0);
 	gl::glEnableVertexAttribArray(1);
 	log_opengl_error();
@@ -153,18 +183,18 @@ int main()
 		std::string vertex_code{};
 		std::string fragment_code{};
 
-		std::ifstream vertex_file{ "cloud_vertex.glsl" };
-		std::ifstream fragment_file{ "cloud_fragment.glsl" };
+		std::ifstream vertex_file{"cloud_vertex.glsl"};
+		std::ifstream fragment_file{"cloud_fragment.glsl"};
 
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
 		vertex_stream << vertex_file.rdbuf();
 		fragment_stream << fragment_file.rdbuf();
 
-		vertex_code = vertex_stream.str();
+		vertex_code   = vertex_stream.str();
 		fragment_code = fragment_stream.str();
 
-		auto p_vertex_data = vertex_code.data();
+		auto p_vertex_data   = vertex_code.data();
 		auto p_fragment_data = fragment_code.data();
 
 		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
@@ -190,18 +220,18 @@ int main()
 		std::string vertex_code{};
 		std::string fragment_code{};
 
-		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
-		std::ifstream fragment_file{ "raymarch_fragment.glsl" };
+		std::ifstream vertex_file{"raymarch_vertex.glsl"};
+		std::ifstream fragment_file{"raymarch_fragment.glsl"};
 
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
 		vertex_stream << vertex_file.rdbuf();
 		fragment_stream << fragment_file.rdbuf();
 
-		vertex_code = vertex_stream.str();
+		vertex_code   = vertex_stream.str();
 		fragment_code = fragment_stream.str();
 
-		auto p_vertex_data = vertex_code.data();
+		auto p_vertex_data   = vertex_code.data();
 		auto p_fragment_data = fragment_code.data();
 
 		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
@@ -226,14 +256,18 @@ int main()
 	log_opengl_error();
 
 	// create framebuffers
-	framebuffer_t framebuffer{ screen_width, screen_height, 1, true };
-	
+	framebuffer_t framebuffer{screen_width, screen_height, 1, true};
+
 	auto delta_time = 1.0F / 60.0F;
 
 	while (glfwWindowShouldClose(window) == 0)
 	{
 		glfwPollEvents();
-		
+
+		std::stringstream ss{};
+		ss << "camera position: " << camera.transform.position.x << ", " << camera.transform.position.y << ", " << camera.transform.position.z; \
+		log(ss.str());
+
 		auto start = std::chrono::high_resolution_clock::now();
 		process_input(delta_time);
 
@@ -243,21 +277,31 @@ int main()
 		gl::glUseProgram(cloud_shader);
 		set_uniform(cloud_shader, "projection", camera.projection);
 		set_uniform(cloud_shader, "view", camera.transform.get_view_matrix());
-		set_uniform(cloud_shader, "model", glm::mat4x4{1.0F});
+		auto transform_matrix = scale(30000);
+		transform_matrix *= rotate(radians(90), {1.0F, 0.0F, 0.0F});
+		set_uniform(cloud_shader, "model", transform_matrix);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
-		framebuffer.unbind();
-		
+		framebuffer_t::unbind();
+
 		// raymarching
 
-		gl::glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
+		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(raymarching_shader);
 		framebuffer.colour_attachments.front().bind(0);
+		glActiveTexture(gl::GLenum::GL_TEXTURE1);
+		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_base_texture);
+		glActiveTexture(gl::GLenum::GL_TEXTURE2);
+		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
+		glActiveTexture(gl::GLenum::GL_TEXTURE3);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
 		set_uniform(raymarching_shader, "full_screen", 0);
+		set_uniform(raymarching_shader, "cloud_base", 1);
+		set_uniform(raymarching_shader, "cloud_erosion", 2);
+		set_uniform(raymarching_shader, "weather_map", 3);
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
-		set_uniform(raymarching_shader, "viewport", glm::vec2{1280, 720});
-		set_uniform(raymarching_shader, "camera_pos", glm::vec3{ camera.transform.position });
+		set_uniform(raymarching_shader, "camera_pos", glm::vec3{camera.transform.position});
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		auto end   = std::chrono::high_resolution_clock::now();
