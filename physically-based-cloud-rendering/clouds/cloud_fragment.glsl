@@ -6,5 +6,5 @@ in vec2 uvs;
 
 void main()
 {
-	fragment_colour = vec4(126.0/255.0, 200.0/255.0, 80.0/255.0, 1.0);
+	fragment_colour = vec4(0.42,0.33,0.12, 1.0);
 }

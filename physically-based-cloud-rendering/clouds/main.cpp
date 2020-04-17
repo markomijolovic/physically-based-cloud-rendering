@@ -25,6 +25,9 @@
 #include "aabb.hpp"
 
 #include "framebuffer.hpp"
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 constexpr auto screen_width  = 1280;
 constexpr auto screen_height = 720;
@@ -57,6 +60,11 @@ float x{};
 float y{};
 float x_offset{};
 float y_offset{};
+bool  options{};
+int   radio_button_value{3};
+float noise_scale{10000.0F};
+float scattering_factor = 0.5;
+float extinction_factor = 0.1;
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -64,6 +72,7 @@ static void process_input(float dt);
 
 int main()
 {
+	// init glfw
 	if (glfwInit() == 0)
 	{
 		std::exit(-1);
@@ -90,6 +99,16 @@ int main()
 	gl::glViewport(0, 0, screen_width, screen_height);
 	log_opengl_error();
 
+	//init imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::StyleColorsLight();
+	auto& io = ImGui::GetIO();
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 460");
+
+
 	// load textures
 	stbi_set_flip_vertically_on_load(1);
 	gl::GLuint cloud_base_texture; // load base cloud shape texture
@@ -101,6 +120,7 @@ int main()
 		int        height;
 		int        number_of_components;
 		const auto cloud_base_image = stbi_load("textures/noise_shape.tga", &width, &height, &number_of_components, 0);
+		//const auto cloud_base_image = stbi_load("textures/LowFrequency3DTexture.tga", &width, &height, &number_of_components, 0);
 
 		gl::glGenTextures(1, &cloud_base_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_base_texture);
@@ -143,15 +163,16 @@ int main()
 		int        height;
 		int        number_of_components;
 		const auto weather_map_data = stbi_load("textures/weather_map.png", &width, &height, &number_of_components,
-			0);
+		                                        0);
 		gl::glGenTextures(1, &weather_map_texture);
-		gl::glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
-		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
-		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
-		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
 
-		gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
-		gl::glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, 520, 520, 0, gl::GLenum::GL_RGBA, gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, 520, 520, 0, gl::GLenum::GL_RGBA,
+		             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 
 		log_opengl_error();
 		stbi_image_free(weather_map_data);
@@ -265,7 +286,8 @@ int main()
 		glfwPollEvents();
 
 		std::stringstream ss{};
-		ss << "camera position: " << camera.transform.position.x << ", " << camera.transform.position.y << ", " << camera.transform.position.z; \
+		ss << "camera position: " << camera.transform.position.x << ", " << camera.transform.position.y << ", " <<
+			camera.transform.position.z;
 		log(ss.str());
 
 		auto start = std::chrono::high_resolution_clock::now();
@@ -302,13 +324,63 @@ int main()
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
 		set_uniform(raymarching_shader, "camera_pos", glm::vec3{camera.transform.position});
+		set_uniform(raymarching_shader, "weather_map_visualization", static_cast<float>(radio_button_value == 1));
+		set_uniform(raymarching_shader, "low_frequency_noise_visualization",
+		            static_cast<float>(radio_button_value == 2));
+		set_uniform(raymarching_shader, "high_frequency_noise_visualization",
+		            static_cast<float>(radio_button_value == 3));
+		set_uniform(raymarching_shader, "noise_scale", noise_scale);
+		set_uniform(raymarching_shader, "scattering_factor", scattering_factor);
+		set_uniform(raymarching_shader, "extinction_factor", extinction_factor);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+
+		// render gui
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::Begin("clouds");
+		ImGui::Text("average fps: %.2f fps", ImGui::GetIO().Framerate);
+		ImGui::Text("average frametime: %.2f ms", 1000.0F / ImGui::GetIO().Framerate);
+		ImGui::Text("camera world position: x=%f, y=%f, z=%f",
+		            camera.transform.position.x,
+		            camera.transform.position.y,
+		            camera.transform.position.z);
+		ImGui::Text("press 'o' to toggle options");
+		ImGui::End();
+
+		if (options)
+		{
+			ImGui::Begin("options");
+
+			ImGui::RadioButton("weather map visualization", &radio_button_value, 1);
+			ImGui::RadioButton("low frequency noise", &radio_button_value, 2);
+			ImGui::RadioButton("high frequency noise", &radio_button_value, 3);
+
+			ImGui::SliderFloat("noise scale", &noise_scale, 0.0F, 100000.0F, "%.0f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.00001F, 1.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.00001F, 1.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::End();
+		}
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		auto end   = std::chrono::high_resolution_clock::now();
 		delta_time = std::chrono::duration<float>(end - start).count();
 
+
 		glfwSwapBuffers(window);
 	}
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
@@ -316,6 +388,11 @@ int main()
 
 static void process_input(float dt)
 {
+	if (options)
+	{
+		return;
+	}
+
 	auto view_matrix = camera.transform.get_view_matrix();
 
 	const auto right   = glm::vec3{view_matrix[0][0], view_matrix[1][0], view_matrix[2][0]};
@@ -380,7 +457,19 @@ static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int act
 		return;
 	}
 
-	if (action == GLFW_PRESS)
+	if (key == GLFW_KEY_O && action == GLFW_PRESS)
+	{
+		if (!options)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+		else
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		}
+		options = !options;
+	}
+	else if (action == GLFW_PRESS)
 	{
 		buttons[key] = true;
 	}
