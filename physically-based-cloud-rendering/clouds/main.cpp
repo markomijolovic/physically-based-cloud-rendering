@@ -62,9 +62,9 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{3};
-float noise_scale{10000.0F};
-float scattering_factor = 0.5;
-float extinction_factor = 0.1;
+float noise_scale{25000.0F};
+float scattering_factor = 0.1;
+float extinction_factor = 0.01;
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -119,7 +119,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto cloud_base_image = stbi_load("textures/noise_shape.tga", &width, &height, &number_of_components, 0);
+		const auto cloud_base_image = stbi_load("textures/noise_shape2.tga", &width, &height, &number_of_components, 0);
 		//const auto cloud_base_image = stbi_load("textures/LowFrequency3DTexture.tga", &width, &height, &number_of_components, 0);
 
 		gl::glGenTextures(1, &cloud_base_texture);
@@ -285,10 +285,10 @@ int main()
 	{
 		glfwPollEvents();
 
-		std::stringstream ss{};
-		ss << "camera position: " << camera.transform.position.x << ", " << camera.transform.position.y << ", " <<
-			camera.transform.position.z;
-		log(ss.str());
+		//std::stringstream ss{};
+		//ss << "camera position: " << camera.transform.position.x << ", " << camera.transform.position.y << ", " <<
+		//	camera.transform.position.z;
+		//log(ss.str());
 
 		auto start = std::chrono::high_resolution_clock::now();
 		process_input(delta_time);
@@ -357,7 +357,7 @@ int main()
 			ImGui::RadioButton("low frequency noise", &radio_button_value, 2);
 			ImGui::RadioButton("high frequency noise", &radio_button_value, 3);
 
-			ImGui::SliderFloat("noise scale", &noise_scale, 0.0F, 100000.0F, "%.0f");
+			ImGui::SliderFloat("noise scale", &noise_scale, 1000.0F, 100000.0F, "%.0f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.00001F, 1.0F, "%.5f");

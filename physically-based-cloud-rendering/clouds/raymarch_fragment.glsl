@@ -82,7 +82,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                                 + (high_frequency_noises.z * 0.125);
 
         float high_freq_noise_modifier = mix(high_freq_FBM, 1.0 - high_freq_FBM, clamp(relative_height * 10.0, 0.0, 1.0));
-        final_cloud = remap(base_cloud_with_coverage, high_freq_noise_modifier * 0.2, 1.0, 0.0, 1.0); 
+        final_cloud = remap(base_cloud_with_coverage, high_freq_noise_modifier * 0.1, 1.0, 0.0, 1.0); 
         final_cloud = clamp(final_cloud, 0.0, 1.0);
     }
 
@@ -143,11 +143,11 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
     vec3 dir = normalize(end_point - start_point);
 
-    float step_size = length(end_point - start_point)/65;
+    float step_size = length(end_point - start_point)/129;
 
     // start marching from the end
     vec3 current_point = end_point;
-    for (int i = 0; i < 64; i++)
+    for (int i = 0; i < 128; i++)
     {
         // march backwards
         current_point -= dir*step_size;
