@@ -20,6 +20,7 @@ uniform float high_frequency_noise_visualization;
 uniform float noise_scale;
 uniform float scattering_factor;
 uniform float extinction_factor;
+uniform float sun_intensity;
 
 const float pi = 3.14159265;
 const float one_over_pi = 0.3183099;
@@ -36,14 +37,23 @@ float get_density_height_gradient_for_point(vec3 point, vec3 weather_data, float
 {
     float cloudt = weather_data.z;
 
-    float cumulus = max(0.0, remap(relative_height, 0.01, 0.3, 0.0, 1.0) * remap(relative_height, 0.6, 0.95, 1.0, 0.0));
-    float stratocumulus = max(0.0, remap(relative_height, 0.0, 0.25, 0.0, 1.0) * remap(relative_height,  0.3, 0.65, 1.0, 0.0)); 
-    float stratus = max(0.0, remap(relative_height, 0, 0.1, 0.0, 1.0) * remap(relative_height, 0.2, 0.3, 1.0, 0.0)); 
+    float cumulus = remap(relative_height, 0.0, 0.3, 0.0, 1.0) * remap(relative_height, 0.7, 1.0, 1.0, 0.0);
+    float stratocumulus = remap(relative_height, 0.1, 0.4, 0.0, 1.0) * remap(relative_height,  0.5, 0.7, 1.0, 0.0); 
+    float stratus = remap(relative_height, 0.0, 0.1, 0.0, 1.0) * remap(relative_height, 0.15, 0.3, 1.0, 0.0); 
 
-    float a = mix(stratus, stratocumulus, clamp(cloudt * 2.0, 0.0, 1.0));
+    //float a = mix(stratus, stratocumulus, clamp(cloudt * 2.0, 0.0, 1.0));
+    //float b = mix(stratocumulus, cumulus, clamp((cloudt - 0.5) * 2.0, 0.0, 1.0));
 
-    float b = mix(stratocumulus, stratus, clamp((cloudt - 0.5) * 2.0, 0.0, 1.0));
-    return mix(a, b, cloudt);
+    if (cloudt > 0.5)
+    {
+        return mix(stratocumulus, cumulus, clamp((cloudt - 0.5) * 2.0, 0.0, 1.0));
+    }
+    else 
+    {
+        return mix(stratus, stratocumulus, clamp(cloudt * 2.0, 0.0, 1.0));
+    }
+
+    //return mix(a, b, cloudt);
 }
 
 float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_height, bool ischeap)
@@ -58,7 +68,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
     float density_height_gradient = get_density_height_gradient_for_point(samplepoint, weather_data, relative_height);
     base_cloud = base_cloud * density_height_gradient;
     
-    float cloud_coverage = weather_data.x;
+    float cloud_coverage = weather_data.y;
     if (weather_map_visualization == 1.0)
     {
         return cloud_coverage;   
@@ -82,7 +92,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                                 + (high_frequency_noises.z * 0.125);
 
         float high_freq_noise_modifier = mix(high_freq_FBM, 1.0 - high_freq_FBM, clamp(relative_height * 10.0, 0.0, 1.0));
-        final_cloud = remap(base_cloud_with_coverage, high_freq_noise_modifier * 0.1, 1.0, 0.0, 1.0); 
+        final_cloud = remap(base_cloud_with_coverage, high_freq_noise_modifier * 0.2, 1.0, 0.0, 1.0); 
         final_cloud = clamp(final_cloud, 0.0, 1.0);
     }
 
@@ -109,13 +119,12 @@ float hg(float costheta, float g)
 float phase(vec3 a, vec3 b)
 {
 	float costheta = dot(a, b);
-	return hg(costheta, 0.8);
-    //return 0.75*hg(costheta, 0.8) +0.25*hg(costheta, (2.0/3.0)*0.8);
+    return 0.5*hg(costheta, 0.8) +0.5*hg(costheta, -0.5);
 }
 
 float ray_march_to_sun(vec3 start_point, vec3 end_point, vec3 prev_dir)
 {
-    float density = 0;
+    float transmittance = 1.0;
 
     vec3 dir = normalize(end_point - start_point);
     float step_size = length(end_point - start_point)/17;
@@ -128,29 +137,27 @@ float ray_march_to_sun(vec3 start_point, vec3 end_point, vec3 prev_dir)
         float relative_height = (start_point.y - aabb_min.y)/(aabb_max.y - aabb_min.y);
         vec4 weather_data = texture(weather_map, (start_point.xz - aabb_min.x)/(aabb_max.x - aabb_min.x));
         float cloud_density = sample_cloud_density(start_point/noise_scale, weather_data.xyz, relative_height, false);
-        density += cloud_density;
+        transmittance *= exp(-cloud_density*extinction_factor*step_size);
     }
 
-    float scatter = exp(-density*extinction_factor);
-    return scatter * ph;
+    return transmittance * ph * sun_intensity;
 }
-
 
 vec4 ray_march(vec3 start_point, vec3 end_point)
 {  
-    float extinction = 1.0; 
-    vec3 scattering = vec3(0);
+    float transmittance = 1.0; 
+    vec3 colour = vec3(0);
 
     vec3 dir = normalize(end_point - start_point);
 
     float step_size = length(end_point - start_point)/129;
 
-    // start marching from the end
-    vec3 current_point = end_point;
+    // start marching from the beginning
+    vec3 current_point = start_point;
     for (int i = 0; i < 128; i++)
     {
-        // march backwards
-        current_point -= dir*step_size;
+        // march forwards
+        current_point += dir*step_size;
 
         // compute relative height in cloud layer
         float relative_height = (current_point.y - aabb_min.y)/(aabb_max.y - aabb_min.y);
@@ -170,24 +177,20 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
         // compute current  and extinction contribution
         float current_scattering = step_size*radiance*scattering_coefficient;
-        float current_extinction = exp(-extinction_coefficient*step_size);
+        float current_transmittance = exp(-extinction_coefficient*step_size);
 
         // accumulate scattering and extinction
-        extinction *= current_extinction;
-        scattering += current_extinction*current_scattering;
+        colour += transmittance*current_scattering;
+
+        transmittance *= current_transmittance;
     }
 
-    return vec4(scattering, extinction);
+    return vec4(colour, transmittance);
 }
 
 void main()
 {
-    vec4 source = texture(full_screen, uvs);
-    if (source.g == 0)
-    {
-        // quick and dirty test lol
-        source = vec4(0.53,0.81,0.92, 1);
-    }
+    vec4 source = vec4(0.53,0.81,0.92, 1);  // lol
 
     // calculate ray in world space
     float x = uvs.x*2.0 - 1.0;
@@ -219,4 +222,8 @@ void main()
         // no intersection
         fragment_colour = source;
     }
+
+    fragment_colour.r = pow(fragment_colour.r, 1.0/2.2);
+    fragment_colour.g = pow(fragment_colour.g, 1.0/2.2);
+    fragment_colour.b = pow(fragment_colour.b, 1.0/2.2);
 }

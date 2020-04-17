@@ -63,8 +63,9 @@ float y_offset{};
 bool  options{};
 int   radio_button_value{3};
 float noise_scale{25000.0F};
-float scattering_factor = 0.1;
-float extinction_factor = 0.01;
+float scattering_factor = 0.001F;
+float extinction_factor = 0.001F;
+float sun_intensity = 5.0F;
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -332,6 +333,7 @@ int main()
 		set_uniform(raymarching_shader, "noise_scale", noise_scale);
 		set_uniform(raymarching_shader, "scattering_factor", scattering_factor);
 		set_uniform(raymarching_shader, "extinction_factor", extinction_factor);
+		set_uniform(raymarching_shader, "sun_intensity", sun_intensity);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui
@@ -360,10 +362,13 @@ int main()
 			ImGui::SliderFloat("noise scale", &noise_scale, 1000.0F, 100000.0F, "%.0f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.00001F, 1.0F, "%.5f");
+			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.000001F, 0.01F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.00001F, 1.0F, "%.5f");
+			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.000001F, 0.01F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("sun intensity", &sun_intensity, 1.0F, 100.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::End();
