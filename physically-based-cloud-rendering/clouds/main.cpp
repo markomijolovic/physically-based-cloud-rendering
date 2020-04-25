@@ -62,10 +62,17 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{3};
-float noise_scale{25000.0F};
-float scattering_factor = 0.001F;
-float extinction_factor = 0.001F;
-float sun_intensity = 5.0F;
+float low_freq_noise_scale{25000.0F};
+float high_freq_noise_scale{1000.0F};
+float scattering_factor = 0.003F;
+float extinction_factor = 0.003F;
+float sun_intensity = 3.0F;
+float high_freq_noise_factor = 1.0F;
+bool multiple_scattering_approximation{ true };
+int N{ 8 };
+float a{0.75F};
+float b{ 0.75F };
+float c{ 0.5F };
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -325,15 +332,22 @@ int main()
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
 		set_uniform(raymarching_shader, "camera_pos", glm::vec3{camera.transform.position});
-		set_uniform(raymarching_shader, "weather_map_visualization", static_cast<float>(radio_button_value == 1));
+		set_uniform(raymarching_shader, "weather_map_visualization", static_cast<int>(radio_button_value == 1));
 		set_uniform(raymarching_shader, "low_frequency_noise_visualization",
-		            static_cast<float>(radio_button_value == 2));
+		            static_cast<int>(radio_button_value == 2));
 		set_uniform(raymarching_shader, "high_frequency_noise_visualization",
-		            static_cast<float>(radio_button_value == 3));
-		set_uniform(raymarching_shader, "noise_scale", noise_scale);
+		            static_cast<int>(radio_button_value == 3));
+		set_uniform(raymarching_shader, "low_freq_noise_scale", low_freq_noise_scale);
+		set_uniform(raymarching_shader, "high_freq_noise_scale", high_freq_noise_scale);
 		set_uniform(raymarching_shader, "scattering_factor", scattering_factor);
 		set_uniform(raymarching_shader, "extinction_factor", extinction_factor);
 		set_uniform(raymarching_shader, "sun_intensity", sun_intensity);
+		set_uniform(raymarching_shader, "high_freq_noise_factor", high_freq_noise_factor);
+		set_uniform(raymarching_shader, "multiple_scattering_approximation", static_cast<int>(multiple_scattering_approximation));
+		set_uniform(raymarching_shader, "N", N);
+		set_uniform(raymarching_shader, "a", a);
+		set_uniform(raymarching_shader, "b", b);
+		set_uniform(raymarching_shader, "c", c);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui
@@ -359,7 +373,13 @@ int main()
 			ImGui::RadioButton("low frequency noise", &radio_button_value, 2);
 			ImGui::RadioButton("high frequency noise", &radio_button_value, 3);
 
-			ImGui::SliderFloat("noise scale", &noise_scale, 1000.0F, 100000.0F, "%.0f");
+			ImGui::SliderFloat("low frequency noise scale", &low_freq_noise_scale, 1000.0F, 100000.0F, "%.0f");
+			ImGui::NewLine();
+			
+			ImGui::SliderFloat("high frequency noise scale", &high_freq_noise_scale, 10.0F, 10000.0F, "%.0f");
+			ImGui::NewLine();
+			
+			ImGui::SliderFloat("high frequency noise factor", &high_freq_noise_factor, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.000001F, 0.01F, "%.5f");
@@ -371,6 +391,21 @@ int main()
 			ImGui::SliderFloat("sun intensity", &sun_intensity, 1.0F, 100.0F, "%.5f");
 			ImGui::NewLine();
 
+			ImGui::Checkbox("multiple scattering approximation", &multiple_scattering_approximation);
+			ImGui::NewLine();
+
+			ImGui::SliderInt("octaves count", &N, 1, 8, "%d");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("attenuation", &a, 0.01F, 1.0F, "%.2f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("contribution", &b, 0.01F, 1.0F, "%.2f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("eccentricity attenuation", &c, 0.01F, 1.0F, "%.2f");
+			ImGui::NewLine();
+			
 			ImGui::End();
 		}
 
