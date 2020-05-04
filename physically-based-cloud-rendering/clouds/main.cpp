@@ -5,6 +5,8 @@
 #include <sstream>
 
 #include <chrono>
+#include <iostream>
+
 
 #include "camera.hpp"
 
@@ -62,7 +64,7 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{3};
-float low_freq_noise_scale{25000.0F};
+float low_freq_noise_scale{75000.0F};
 float high_freq_noise_scale{1000.0F};
 float scattering_factor = 0.003F;
 float extinction_factor = 0.003F;
@@ -288,6 +290,7 @@ int main()
 	framebuffer_t framebuffer{screen_width, screen_height, 1, true};
 
 	auto delta_time = 1.0F / 60.0F;
+	auto now = std::chrono::high_resolution_clock::now();
 
 	while (glfwWindowShouldClose(window) == 0)
 	{
@@ -298,8 +301,12 @@ int main()
 		//	camera.transform.position.z;
 		//log(ss.str());
 
-		auto start = std::chrono::high_resolution_clock::now();
+		delta_time = std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - now).count();
+		now = std::chrono::high_resolution_clock::now();
+		
 		process_input(delta_time);
+		
+		std::cout << "Delta time: " << delta_time << std::endl;
 
 		// draw basic quad
 		framebuffer.bind();
@@ -411,10 +418,6 @@ int main()
 
 		ImGui::Render();
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-		auto end   = std::chrono::high_resolution_clock::now();
-		delta_time = std::chrono::duration<float>(end - start).count();
-
 
 		glfwSwapBuffers(window);
 	}
