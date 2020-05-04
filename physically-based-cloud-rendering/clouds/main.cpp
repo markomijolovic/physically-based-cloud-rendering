@@ -67,8 +67,8 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{3};
-float low_freq_noise_scale{25000.0F};
-float high_freq_noise_scale{500.0F};
+float low_freq_noise_scale{15000.0F};
+float high_freq_noise_scale{1000.0F};
 float scattering_factor = 0.003F;
 float extinction_factor = 0.003F;
 float sun_intensity = 5.0F;
@@ -80,6 +80,10 @@ float b{ 0.75F };
 float c{ 0.5F };
 int primary_ray_steps{ 128 };
 int secondary_ray_steps{ 16 };
+float cumulative_time{};
+float cloud_speed{ 0.1F };
+glm::vec3 wind_direction{1.0F, 0.0F, 0.0F};
+glm::vec3 wind_direction_normalized{wind_direction};
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -176,7 +180,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/weather_map_test.png", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/weather_map.png", &width, &height, &number_of_components,
 		                                        0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -308,6 +312,7 @@ int main()
 
 		delta_time = std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - now).count();
 		now = std::chrono::high_resolution_clock::now();
+		cumulative_time += delta_time;
 		
 		process_input(delta_time);
 		
@@ -362,6 +367,10 @@ int main()
 		set_uniform(raymarching_shader, "c", c);
 		set_uniform(raymarching_shader, "primary_ray_steps", primary_ray_steps);
 		set_uniform(raymarching_shader, "secondary_ray_steps", secondary_ray_steps);
+		set_uniform(raymarching_shader, "time", cumulative_time);
+		set_uniform(raymarching_shader, "cloud_speed", cloud_speed);
+		wind_direction_normalized = normalize(wind_direction);
+		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui
@@ -372,6 +381,7 @@ int main()
 		ImGui::Begin("clouds");
 		ImGui::Text("average fps: %.2f fps", ImGui::GetIO().Framerate);
 		ImGui::Text("average frametime: %.2f ms", 1000.0F / ImGui::GetIO().Framerate);
+		ImGui::Text("time elapsed: %.2f ms", cumulative_time);
 		ImGui::Text("camera world position: x=%f, y=%f, z=%f",
 		            camera.transform.position.x,
 		            camera.transform.position.y,
@@ -406,6 +416,15 @@ int main()
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.000001F, 0.01F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("sun intensity", &sun_intensity, 1.0F, 100.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat3("wind direction", &wind_direction[0], -1.0F, 1.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("sun intensity", &sun_intensity, 1.0F, 100.0F, "%.5f");

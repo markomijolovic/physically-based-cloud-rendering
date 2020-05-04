@@ -30,6 +30,9 @@ uniform float b;
 uniform float c;
 uniform int primary_ray_steps;
 uniform int secondary_ray_steps;
+uniform float time;
+uniform float cloud_speed;
+uniform vec3 wind_direction;
 
 const float pi = 3.14159265;
 const float one_over_pi = 0.3183099;
@@ -69,6 +72,8 @@ float get_density_height_gradient_for_point(vec3 point, vec3 weather_data, float
 
 float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_height, bool ischeap)
 {
+    samplepoint += (wind_direction + vec3(0.0, 0.1, 0.0))*time*cloud_speed;
+
     vec4 low_frequency_noises = texture(cloud_base, samplepoint/low_freq_noise_scale);
     float low_freq_FBM = low_frequency_noises.y * 0.625 + 
                          low_frequency_noises.z * 0.250 +
@@ -78,15 +83,15 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
 
     float density_height_gradient = get_density_height_gradient_for_point(samplepoint, weather_data, relative_height);
     base_cloud = base_cloud * density_height_gradient;
-    
+
     float cloud_coverage = weather_data.y;
     if (weather_map_visualization == 1.0)
     {
         return cloud_coverage;   
     }
-    float base_cloud_with_coverage = remap(base_cloud, cloud_coverage, 1.0, 0.0, 1.0);
-    base_cloud_with_coverage *= cloud_coverage;
+    float base_cloud_with_coverage = remap(base_cloud, 1.0 - cloud_coverage, 1.0, 0.0, 1.0);    // todo: validate this
     base_cloud_with_coverage = clamp(base_cloud_with_coverage, 0.0, 1.0);
+    base_cloud_with_coverage *= cloud_coverage;
 
     float final_cloud = base_cloud_with_coverage;
     if (low_frequency_noise_visualization == 1.0)
