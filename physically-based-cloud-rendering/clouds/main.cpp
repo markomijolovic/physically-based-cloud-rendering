@@ -67,11 +67,11 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{3};
-float low_freq_noise_scale{75000.0F};
-float high_freq_noise_scale{1000.0F};
+float low_freq_noise_scale{25000.0F};
+float high_freq_noise_scale{500.0F};
 float scattering_factor = 0.003F;
 float extinction_factor = 0.003F;
-float sun_intensity = 3.0F;
+float sun_intensity = 5.0F;
 float high_freq_noise_factor = 1.0F;
 bool multiple_scattering_approximation{ true };
 int N{ 8 };
@@ -176,7 +176,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/weather_map.png", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/weather_map_test.png", &width, &height, &number_of_components,
 		                                        0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -185,7 +185,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
 
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
-		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, 520, 520, 0, gl::GLenum::GL_RGBA,
+		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
 		             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 
 		log_opengl_error();
@@ -386,7 +386,7 @@ int main()
 			ImGui::SliderInt("number of primary ray steps", &primary_ray_steps, 1, 200, "%d");
 			ImGui::NewLine();
 			
-			ImGui::SliderInt("number of secondary ray steps", &secondary_ray_steps, 1, 200, "%d");
+			ImGui::SliderInt("number of secondary ray steps", &secondary_ray_steps, 1, 50, "%d");
 			ImGui::NewLine();
 
 			ImGui::RadioButton("weather map visualization", &radio_button_value, 1);
