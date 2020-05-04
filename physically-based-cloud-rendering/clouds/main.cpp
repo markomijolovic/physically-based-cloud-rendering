@@ -5,8 +5,8 @@
 #include <sstream>
 
 #include <chrono>
-#include <iostream>
 
+#include <iostream>
 
 #include "camera.hpp"
 
@@ -27,8 +27,11 @@
 #include "aabb.hpp"
 
 #include "framebuffer.hpp"
+
 #include "imgui.h"
+
 #include "imgui_impl_glfw.h"
+
 #include "imgui_impl_opengl3.h"
 
 constexpr auto screen_width  = 1280;
@@ -75,6 +78,8 @@ int N{ 8 };
 float a{0.75F};
 float b{ 0.75F };
 float c{ 0.5F };
+int primary_ray_steps{ 128 };
+int secondary_ray_steps{ 16 };
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -117,7 +122,6 @@ int main()
 
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 460");
-
 
 	// load textures
 	stbi_set_flip_vertically_on_load(1);
@@ -252,8 +256,9 @@ int main()
 		std::string fragment_code{};
 
 		std::ifstream vertex_file{"raymarch_vertex.glsl"};
+		
 		std::ifstream fragment_file{"raymarch_fragment.glsl"};
-
+		
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
 		vertex_stream << vertex_file.rdbuf();
@@ -344,17 +349,19 @@ int main()
 		            static_cast<int>(radio_button_value == 2));
 		set_uniform(raymarching_shader, "high_frequency_noise_visualization",
 		            static_cast<int>(radio_button_value == 3));
+		set_uniform(raymarching_shader, "multiple_scattering_approximation", static_cast<int>(multiple_scattering_approximation));
 		set_uniform(raymarching_shader, "low_freq_noise_scale", low_freq_noise_scale);
 		set_uniform(raymarching_shader, "high_freq_noise_scale", high_freq_noise_scale);
 		set_uniform(raymarching_shader, "scattering_factor", scattering_factor);
 		set_uniform(raymarching_shader, "extinction_factor", extinction_factor);
 		set_uniform(raymarching_shader, "sun_intensity", sun_intensity);
 		set_uniform(raymarching_shader, "high_freq_noise_factor", high_freq_noise_factor);
-		set_uniform(raymarching_shader, "multiple_scattering_approximation", static_cast<int>(multiple_scattering_approximation));
 		set_uniform(raymarching_shader, "N", N);
 		set_uniform(raymarching_shader, "a", a);
 		set_uniform(raymarching_shader, "b", b);
 		set_uniform(raymarching_shader, "c", c);
+		set_uniform(raymarching_shader, "primary_ray_steps", primary_ray_steps);
+		set_uniform(raymarching_shader, "secondary_ray_steps", secondary_ray_steps);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui
@@ -375,6 +382,12 @@ int main()
 		if (options)
 		{
 			ImGui::Begin("options");
+
+			ImGui::SliderInt("number of primary ray steps", &primary_ray_steps, 1, 200, "%d");
+			ImGui::NewLine();
+			
+			ImGui::SliderInt("number of secondary ray steps", &secondary_ray_steps, 1, 200, "%d");
+			ImGui::NewLine();
 
 			ImGui::RadioButton("weather map visualization", &radio_button_value, 1);
 			ImGui::RadioButton("low frequency noise", &radio_button_value, 2);

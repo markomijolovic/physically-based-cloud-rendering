@@ -71,6 +71,7 @@
     <None Include="raymarch_vertex.glsl">
       <Filter>Source Files\shaders</Filter>
     </None>
+    <None Include="raymarch_fragment_optimized.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="log.hpp">

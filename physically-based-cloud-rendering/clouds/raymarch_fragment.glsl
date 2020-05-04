@@ -28,6 +28,8 @@ uniform int N;
 uniform float a;
 uniform float b;
 uniform float c;
+uniform int primary_ray_steps;
+uniform int secondary_ray_steps;
 
 const float pi = 3.14159265;
 const float one_over_pi = 0.3183099;
@@ -142,12 +144,12 @@ float ray_march_to_sun(vec3 start_point, vec3 end_point, vec3 prev_dir)
     float transmittance = 1.0;
 
     vec3 dir = normalize(end_point - start_point);
-    float step_size = length(end_point - start_point)/17;
+    float step_size = length(end_point - start_point)/(secondary_ray_steps + 1);
 
     float ph = phase(-dir, -prev_dir);
 
 
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < secondary_ray_steps; i++)
     {
         start_point += dir*step_size;
         float relative_height = (start_point.y - aabb_min.y)/(aabb_max.y - aabb_min.y);
@@ -164,11 +166,9 @@ float ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
     float transmittance = 1.0;
 
     vec3 dir = normalize(end_point - start_point);
-    float step_size = length(end_point - start_point)/17;
+    float step_size = length(end_point - start_point)/(secondary_ray_steps + 1);
 
-
-
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < secondary_ray_steps; i++)
     {
         start_point += dir*step_size;
         float relative_height = (start_point.y - aabb_min.y)/(aabb_max.y - aabb_min.y);
@@ -195,11 +195,11 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
     vec3 dir = normalize(end_point - start_point);
 
-    float step_size = length(end_point - start_point)/129;
+    float step_size = length(end_point - start_point)/(primary_ray_steps+1);
 
     // start marching from the beginning
     vec3 current_point = start_point;
-    for (int i = 0; i < 128; i++)
+    for (int i = 0; i < primary_ray_steps; i++)
     {
         // march forwards
         current_point += dir*step_size;

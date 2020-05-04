@@ -158,6 +158,7 @@
     <None Include="cloud_fragment.glsl" />
     <None Include="cloud_vertex.glsl" />
     <None Include="raymarch_fragment.glsl" />
+    <None Include="raymarch_fragment_optimized.glsl" />
     <None Include="raymarch_vertex.glsl" />
   </ItemGroup>
   <ItemGroup>
