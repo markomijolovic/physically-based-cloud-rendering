@@ -67,23 +67,25 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{3};
-float low_freq_noise_scale{15000.0F};
+float low_freq_noise_scale{25000.0F};
 float high_freq_noise_scale{1000.0F};
-float scattering_factor = 0.003F;
-float extinction_factor = 0.003F;
-float sun_intensity = 5.0F;
+float scattering_factor = 0.020F;
+float extinction_factor = 0.025F;
+float sun_intensity = 15.0F;
 float high_freq_noise_factor = 1.0F;
 bool multiple_scattering_approximation{ true };
 int N{ 8 };
-float a{0.75F};
-float b{ 0.75F };
+float a{0.5F};
+float b{ 0.5F };
 float c{ 0.5F };
 int primary_ray_steps{ 128 };
 int secondary_ray_steps{ 16 };
 float cumulative_time{};
 float cloud_speed{ 0.1F };
 glm::vec3 wind_direction{1.0F, 0.0F, 0.0F};
-glm::vec3 wind_direction_normalized{wind_direction};
+glm::vec3 wind_direction_normalized{};
+glm::vec3 sun_direction{ -1.0F, -1.0F, 0.0F };
+glm::vec3 sun_direction_normalized{};
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -189,9 +191,10 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
 
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+		//glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
+		//             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
 		             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
-
 		log_opengl_error();
 		stbi_image_free(weather_map_data);
 	}
@@ -371,6 +374,8 @@ int main()
 		set_uniform(raymarching_shader, "cloud_speed", cloud_speed);
 		wind_direction_normalized = normalize(wind_direction);
 		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
+		sun_direction_normalized = normalize(sun_direction);
+		set_uniform(raymarching_shader, "sun_direction", sun_direction_normalized);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui
@@ -393,10 +398,10 @@ int main()
 		{
 			ImGui::Begin("options");
 
-			ImGui::SliderInt("number of primary ray steps", &primary_ray_steps, 1, 200, "%d");
+			ImGui::SliderInt("number of primary ray steps", &primary_ray_steps, 1, 500, "%d");
 			ImGui::NewLine();
 			
-			ImGui::SliderInt("number of secondary ray steps", &secondary_ray_steps, 1, 50, "%d");
+			ImGui::SliderInt("number of secondary ray steps", &secondary_ray_steps, 1, 100, "%d");
 			ImGui::NewLine();
 
 			ImGui::RadioButton("weather map visualization", &radio_button_value, 1);
@@ -412,22 +417,22 @@ int main()
 			ImGui::SliderFloat("high frequency noise factor", &high_freq_noise_factor, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.000001F, 0.01F, "%.5f");
+			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.001F, 0.1F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.000001F, 0.01F, "%.5f");
-			ImGui::NewLine();
-
-			ImGui::SliderFloat("sun intensity", &sun_intensity, 1.0F, 100.0F, "%.5f");
+			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.001F, 0.1F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat3("wind direction", &wind_direction[0], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
+			ImGui::SliderFloat3("sun direction", &sun_direction[0], -1.0F, 1.0F, "%.5f");
+			ImGui::NewLine();
+			
 			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("sun intensity", &sun_intensity, 1.0F, 100.0F, "%.5f");
+			ImGui::SliderFloat("sun illuminance", &sun_intensity, 10.0F, 200.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::Checkbox("multiple scattering approximation", &multiple_scattering_approximation);

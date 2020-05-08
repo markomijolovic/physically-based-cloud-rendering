@@ -33,6 +33,7 @@ uniform int secondary_ray_steps;
 uniform float time;
 uniform float cloud_speed;
 uniform vec3 wind_direction;
+uniform vec3 sun_direction;
 
 const float pi = 3.14159265;
 const float one_over_pi = 0.3183099;
@@ -40,7 +41,11 @@ const vec3 aabb_min = vec3(-30000, 1500, -30000);
 const vec3 aabb_max = vec3(30000, 4000, 30000);
 const vec2 weather_map_min = vec2(-30000, -30000);
 const vec2 weather_map_max = vec2(30000, 30000);
-const vec3 sun_pos = vec3(30000, 100000, 30000);
+
+vec3 tone_map(vec3 x) 
+{
+    return x/(x+1);
+}
 
 float remap(float original_value , float original_min , float original_max , float new_min , float new_max) 
 {
@@ -135,13 +140,13 @@ float hg(float costheta, float g)
 float phase(vec3 a, vec3 b)
 {
 	float costheta = dot(a, b);
-    return 0.75*hg(costheta, 0.8) +0.25*hg(costheta, -0.5);
+    return 0.8*hg(costheta, 0.8) +0.2*hg(costheta, -0.5);
 }
 
 float phase_ms(vec3 a, vec3 b, int i)
 {
 	float costheta = dot(a, b);
-    return 0.75*hg(costheta, 0.8*pow(c, i)) +0.25*hg(costheta, -0.5*pow(c, i));
+    return 0.8*hg(costheta, 0.8*pow(c, i)) +0.2*hg(costheta, -0.5*pow(c, i));
 }
 
 float ray_march_to_sun(vec3 start_point, vec3 end_point, vec3 prev_dir)
@@ -220,7 +225,7 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
         float scattering_coefficient = scattering_factor*cloud_density;
 
         // compute radiance from sun
-        vec3 dir_to_sun = normalize(sun_pos - current_point);
+        vec3 dir_to_sun = -sun_direction;
         vec2 inter = intersect_aabb(current_point, dir_to_sun, aabb_min, aabb_max);
         vec3 end_point_to_sun = inter.y*dir_to_sun + current_point;
 
@@ -235,8 +240,8 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
         }
 
         // compute current  and extinction contribution
-        float current_scattering = step_size*radiance*scattering_coefficient;
         float current_transmittance = exp(-extinction_coefficient*step_size);
+        float current_scattering = scattering_coefficient*(radiance - radiance*current_transmittance)/max(extinction_coefficient,  0.0000001);
 
         // accumulate scattering and extinction
         colour += transmittance*current_scattering;
@@ -249,7 +254,7 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
 void main()
 {
-    vec4 source = vec4(0.53,0.81,0.92, 1);  // lol
+    vec3 colour = vec3(0.53, 0.81, 0.92);
 
     // calculate ray in world space
     float x = uvs.x*2.0 - 1.0;
@@ -274,13 +279,13 @@ void main()
         vec4 rm = ray_march(start_point, end_point);
 
         // combine with source colour
-        fragment_colour = vec4(source.rgb*rm.a + rm.rgb, 1);
+        colour = colour.rgb*rm.a + rm.rgb;
     }
-    else 
-    {
-        // no intersection
-        fragment_colour = source;
-    }
+
+    colour = tone_map(colour);
+
+
+    fragment_colour = vec4(colour, 1.0);
 
     fragment_colour.r = pow(fragment_colour.r, 1.0/2.2);
     fragment_colour.g = pow(fragment_colour.g, 1.0/2.2);

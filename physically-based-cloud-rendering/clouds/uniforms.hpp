@@ -23,6 +23,12 @@ void set_uniform(gl::GLuint id, const std::string& name, T&& value)
 		                 1,
 		                 const_cast<gl::GLfloat*>(reinterpret_cast<const gl::GLfloat*>(&value)));
 	}
+	else if constexpr (std::is_same_v<type, glm::vec2>)
+	{
+		gl::glUniform2fv(gl::glGetUniformLocation(id, name.c_str()),
+			1,
+			const_cast<gl::GLfloat*>(reinterpret_cast<const gl::GLfloat*>(&value)));
+	}
 	else if constexpr (std::is_same_v<type, glm::vec4>)
 	{
 		gl::glUniform4fv(gl::glGetUniformLocation(id, name.c_str()),
