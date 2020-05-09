@@ -72,6 +72,7 @@ float high_freq_noise_scale{1000.0F};
 float scattering_factor = 0.020F;
 float extinction_factor = 0.025F;
 float sun_intensity = 15.0F;
+float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 1.0F;
 bool multiple_scattering_approximation{ true };
 int N{ 8 };
@@ -139,7 +140,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto cloud_base_image = stbi_load("textures/noise_shape2.tga", &width, &height, &number_of_components, 0);
+		const auto cloud_base_image = stbi_load("textures/noise_shape.tga", &width, &height, &number_of_components, 0);
 
 		gl::glGenTextures(1, &cloud_base_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_base_texture);
@@ -472,6 +473,7 @@ int main()
 		set_uniform(raymarching_shader, "secondary_ray_steps", secondary_ray_steps);
 		set_uniform(raymarching_shader, "time", cumulative_time);
 		set_uniform(raymarching_shader, "cloud_speed", cloud_speed);
+		set_uniform(raymarching_shader, "global_cloud_coverage", global_cloud_coverage);
 		wind_direction_normalized = normalize(wind_direction);
 		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
 		sun_direction_normalized = normalize(sun_direction);
@@ -564,6 +566,9 @@ int main()
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("sun illuminance", &sun_intensity, 10.0F, 200.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("global cloud coverage", &global_cloud_coverage, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::Checkbox("multiple scattering approximation", &multiple_scattering_approximation);

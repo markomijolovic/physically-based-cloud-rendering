@@ -35,6 +35,7 @@ uniform float time;
 uniform float cloud_speed;
 uniform vec3 wind_direction;
 uniform vec3 sun_direction;
+uniform float global_cloud_coverage;
 
 const float pi = 3.14159265;
 const float one_over_pi = 0.3183099;
@@ -86,6 +87,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                          low_frequency_noises.w * 0.125;
 
     float base_cloud = remap(low_frequency_noises.x, -(1.0 - low_freq_FBM), 1.0, 0.0, 1.0);
+    base_cloud = clamp(remap(base_cloud, 1.0 - global_cloud_coverage, 1, 0, 1), 0, 1);
 
     float density_height_gradient = get_density_height_gradient_for_point(samplepoint, weather_data, relative_height);
     base_cloud = base_cloud * density_height_gradient;
@@ -95,7 +97,8 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
     {
         return cloud_coverage;   
     }
-    float base_cloud_with_coverage = remap(base_cloud, 1.0 - cloud_coverage, 1.0, 0.0, 1.0);    // todo: validate this
+    float base_cloud_with_coverage = clamp(remap(base_cloud, 1.0 - cloud_coverage, 1.0, 0.0, 1.0), 0, 1);
+    
     base_cloud_with_coverage = clamp(base_cloud_with_coverage, 0.0, 1.0);
     base_cloud_with_coverage *= cloud_coverage;
 
@@ -104,6 +107,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
     {
         return final_cloud;
     }
+
     if(!ischeap && base_cloud_with_coverage > 0.0)
     {
         // todo: curl noise?
@@ -114,8 +118,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                                 + (high_frequency_noises.z * 0.125);
 
         float high_freq_noise_modifier = mix(high_freq_FBM, 1.0 - high_freq_FBM, clamp(relative_height * 10.0, 0.0, 1.0));
-        final_cloud = remap(base_cloud_with_coverage, high_freq_noise_modifier * high_freq_noise_factor, 1.0, 0.0, 1.0); 
-        final_cloud = clamp(final_cloud, 0.0, 1.0);
+        final_cloud = clamp(remap(base_cloud_with_coverage, high_freq_noise_modifier * high_freq_noise_factor, 1.0, 0.0, 1.0), 0.0, 1.0); 
     }
 
     return final_cloud;
@@ -285,10 +288,10 @@ void main()
         if (length(end_point - start_point) > primary_ray_steps) 
         {
 
-        vec4 rm = ray_march(start_point, end_point);
+            vec4 rm = ray_march(start_point, end_point);
 
-        // combine with source colour
-        colour = colour.rgb*rm.a + rm.rgb;
+            // combine with source colour
+            colour = colour.rgb*rm.a + rm.rgb;
         }
     }
 
