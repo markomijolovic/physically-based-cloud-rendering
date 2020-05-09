@@ -1,5 +1,5 @@
 #version 460 core
-out vec4 FragColor;
+out vec4 fragment_colour;
   
 in vec2 uvs;
 uniform sampler2D full_screen;
@@ -15,10 +15,9 @@ void main()
 
     colour = tone_map(colour);
 
-
-
     colour.r = pow(colour.r, 1.0/2.2);
     colour.g = pow(colour.g, 1.0/2.2);
     colour.b = pow(colour.b, 1.0/2.2);
-        FragColor = vec4(colour, 1.0);
-        }
+
+    fragment_colour = vec4(colour, 1.0);
+}

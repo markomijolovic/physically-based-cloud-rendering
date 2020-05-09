@@ -72,15 +72,6 @@ float perlin(const glm::vec3& p, float frequency, int octave_count)
 		
 		weight *= weight;
 		frequency *= octave_frequency_factor;
-		
-		//auto       point     = p * frequency;
-		//const auto noise_val = glm::perlin(point, glm::vec3(frequency));
-
-		//sum += noise_val;
-		//weight_sum += weight;
-
-		//weight *= weight;
-		//frequency *= octave_frequency_factor;
 	}
 
 	const auto noise = sum / weight_sum * 0.5F + 0.5F;

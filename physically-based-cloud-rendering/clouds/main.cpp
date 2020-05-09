@@ -140,7 +140,6 @@ int main()
 		int        height;
 		int        number_of_components;
 		const auto cloud_base_image = stbi_load("textures/noise_shape2.tga", &width, &height, &number_of_components, 0);
-		//const auto cloud_base_image = stbi_load("textures/LowFrequency3DTexture.tga", &width, &height, &number_of_components, 0);
 
 		gl::glGenTextures(1, &cloud_base_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_base_texture);
@@ -191,8 +190,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
 
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
-		//glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
-		//             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+
 		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
 		             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 		log_opengl_error();
@@ -216,8 +214,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
 
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
-		//glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
-		//             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+
 		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
 			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 		log_opengl_error();
@@ -413,11 +410,6 @@ int main()
 	{
 		glfwPollEvents();
 
-		//std::stringstream ss{};
-		//ss << "camera position: " << camera.transform.position.x << ", " << camera.transform.position.y << ", " <<
-		//	camera.transform.position.z;
-		//log(ss.str());
-
 		delta_time = std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - now).count();
 		now = std::chrono::high_resolution_clock::now();
 		cumulative_time += delta_time;
@@ -440,7 +432,6 @@ int main()
 		framebuffer_t::unbind();
 
 		// raymarching
-
 		framebuffer2.bind();
 		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(raymarching_shader);
@@ -487,9 +478,9 @@ int main()
 		set_uniform(raymarching_shader, "sun_direction", sun_direction_normalized);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
-
-		bool horizontal = true;
-		int amount = 4;
+		// gaussian blur
+		auto horizontal = true;
+		auto amount = 4;
 		gl::glUseProgram(blur_shader);
 		set_uniform(blur_shader, "full_screen", 0);
 		for (unsigned int i = 0; i < amount; i++)
@@ -509,25 +500,6 @@ int main()
 			glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 			horizontal = !horizontal;
 		}
-		
-			
-		//framebuffer3.bind();
-		//glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
-		//gl::glUseProgram(blur_shader);
-
-		//framebuffer2.colour_attachments.front().bind(0);
-		//set_uniform(blur_shader, "full_screen", 0);
-		//set_uniform(blur_shader, "horizontal", 0);
-
-		//glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
-
-		//framebuffer2.bind();
-		//glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
-		//framebuffer3.colour_attachments.front().bind(0);
-		//set_uniform(blur_shader, "full_screen", 0);
-		//set_uniform(blur_shader, "horizontal", 1);
-
-		//glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		framebuffer_t::unbind();
 		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);

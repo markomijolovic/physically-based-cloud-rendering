@@ -206,13 +206,12 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
     vec3 dir = normalize(end_point - start_point);
 
-
     vec2 sample_uvs = uvs*(vec2(1280,720)/vec2(512,512));
     vec3 noise = texture(blue_noise, sample_uvs).rgb;
     float step_size = length(end_point - start_point)/(primary_ray_steps+1);
     start_point += noise*step_size;
-    //noise = noise*2.0 - 1.0;
-    //noise=sign(noise)*(1.0-sqrt(1.0-abs(noise)));
+    noise = noise*2.0 - 1.0;
+    noise=sign(noise)*(1.0-sqrt(1.0-abs(noise)));
 
     // start marching from the beginning
     vec3 current_point = start_point;
@@ -294,15 +293,4 @@ void main()
     }
 
     fragment_colour = vec4(colour, 1.0);
-
-    return;
-
-    colour = tone_map(colour);
-
-
-    fragment_colour = vec4(colour, 1.0);
-
-    fragment_colour.r = pow(fragment_colour.r, 1.0/2.2);
-    fragment_colour.g = pow(fragment_colour.g, 1.0/2.2);
-    fragment_colour.b = pow(fragment_colour.b, 1.0/2.2);
 }
