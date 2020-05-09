@@ -230,7 +230,7 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
         vec3 end_point_to_sun = inter.y*dir_to_sun + current_point;
 
         float radiance;
-        if (multiple_scattering_approximation)
+        if (multiple_scattering_approximation == 1)
         {
              radiance =  ray_march_to_sun_ms(current_point, end_point_to_sun, dir);
         }
