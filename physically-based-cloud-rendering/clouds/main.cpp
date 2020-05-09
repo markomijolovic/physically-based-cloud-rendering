@@ -199,6 +199,31 @@ int main()
 		stbi_image_free(weather_map_data);
 	}
 
+	// load blue noise texture
+	gl::GLuint blue_noise_texture;
+	{
+		log("loading blue noise texture");
+
+		int        width;
+		int        height;
+		int        number_of_components;
+		const auto weather_map_data = stbi_load("textures/blue_noise.png", &width, &height, &number_of_components,
+			0);
+		gl::glGenTextures(1, &blue_noise_texture);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, blue_noise_texture);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
+
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+		//glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
+		//             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
+			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+		log_opengl_error();
+		stbi_image_free(weather_map_data);
+	}
+
 	// create buffers for full screen quad
 	gl::GLuint vbo;
 	gl::GLuint vao;
@@ -294,12 +319,92 @@ int main()
 		gl::glDeleteShader(fragment);
 	}
 
+
+	// load blur shader
+	gl::GLuint blur_shader;
+	{
+		std::string vertex_code{};
+		std::string fragment_code{};
+
+		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+
+		std::ifstream fragment_file{ "blur_fragment.glsl" };
+
+		std::stringstream vertex_stream{};
+		std::stringstream fragment_stream{};
+		vertex_stream << vertex_file.rdbuf();
+		fragment_stream << fragment_file.rdbuf();
+
+		vertex_code = vertex_stream.str();
+		fragment_code = fragment_stream.str();
+
+		auto p_vertex_data = vertex_code.data();
+		auto p_fragment_data = fragment_code.data();
+
+		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
+		gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
+		gl::glCompileShader(vertex);
+
+		auto fragment = glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
+		gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
+		gl::glCompileShader(fragment);
+
+		blur_shader = gl::glCreateProgram();
+		gl::glAttachShader(blur_shader, vertex);
+		gl::glAttachShader(blur_shader, fragment);
+		gl::glLinkProgram(blur_shader);
+
+		gl::glDeleteShader(vertex);
+		gl::glDeleteShader(fragment);
+	}
+
+	// load blur shader
+	gl::GLuint tonemap_shader;
+	{
+		std::string vertex_code{};
+		std::string fragment_code{};
+
+		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+
+		std::ifstream fragment_file{ "tonemap_fragment.glsl" };
+
+		std::stringstream vertex_stream{};
+		std::stringstream fragment_stream{};
+		vertex_stream << vertex_file.rdbuf();
+		fragment_stream << fragment_file.rdbuf();
+
+		vertex_code = vertex_stream.str();
+		fragment_code = fragment_stream.str();
+
+		auto p_vertex_data = vertex_code.data();
+		auto p_fragment_data = fragment_code.data();
+
+		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
+		gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
+		gl::glCompileShader(vertex);
+
+		auto fragment = glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
+		gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
+		gl::glCompileShader(fragment);
+
+		tonemap_shader = gl::glCreateProgram();
+		gl::glAttachShader(tonemap_shader, vertex);
+		gl::glAttachShader(tonemap_shader, fragment);
+		gl::glLinkProgram(tonemap_shader);
+
+		gl::glDeleteShader(vertex);
+		gl::glDeleteShader(fragment);
+	}
+
+
 	gl::glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
 
 	log_opengl_error();
 
 	// create framebuffers
 	framebuffer_t framebuffer{screen_width, screen_height, 1, true};
+	framebuffer_t framebuffer2{screen_width, screen_height, 1, true};
+	framebuffer_t framebuffer3{screen_width, screen_height, 1, true};
 
 	auto delta_time = 1.0F / 60.0F;
 	auto now = std::chrono::high_resolution_clock::now();
@@ -336,6 +441,7 @@ int main()
 
 		// raymarching
 
+		framebuffer2.bind();
 		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(raymarching_shader);
 		framebuffer.colour_attachments.front().bind(0);
@@ -345,10 +451,13 @@ int main()
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
 		glActiveTexture(gl::GLenum::GL_TEXTURE3);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		glActiveTexture(gl::GLenum::GL_TEXTURE4);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, blue_noise_texture);
 		set_uniform(raymarching_shader, "full_screen", 0);
 		set_uniform(raymarching_shader, "cloud_base", 1);
 		set_uniform(raymarching_shader, "cloud_erosion", 2);
 		set_uniform(raymarching_shader, "weather_map", 3);
+		set_uniform(raymarching_shader, "blue_noise", 4);
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
 		set_uniform(raymarching_shader, "camera_pos", glm::vec3{camera.transform.position});
@@ -376,6 +485,56 @@ int main()
 		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
 		sun_direction_normalized = normalize(sun_direction);
 		set_uniform(raymarching_shader, "sun_direction", sun_direction_normalized);
+		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+
+
+		bool horizontal = true;
+		int amount = 4;
+		gl::glUseProgram(blur_shader);
+		set_uniform(blur_shader, "full_screen", 0);
+		for (unsigned int i = 0; i < amount; i++)
+		{
+			if (horizontal)
+			{
+				framebuffer3.bind();
+				framebuffer2.colour_attachments.front().bind(0);
+			}
+			else
+			{
+				framebuffer2.bind();
+				framebuffer3.colour_attachments.front().bind(0);
+			}
+			set_uniform(blur_shader, "horizontal", horizontal);
+
+			glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+			horizontal = !horizontal;
+		}
+		
+			
+		//framebuffer3.bind();
+		//glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
+		//gl::glUseProgram(blur_shader);
+
+		//framebuffer2.colour_attachments.front().bind(0);
+		//set_uniform(blur_shader, "full_screen", 0);
+		//set_uniform(blur_shader, "horizontal", 0);
+
+		//glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+
+		//framebuffer2.bind();
+		//glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
+		//framebuffer3.colour_attachments.front().bind(0);
+		//set_uniform(blur_shader, "full_screen", 0);
+		//set_uniform(blur_shader, "horizontal", 1);
+
+		//glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+
+		framebuffer_t::unbind();
+		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
+		gl::glUseProgram(tonemap_shader);
+
+		framebuffer2.colour_attachments.front().bind(0);
+		set_uniform(tonemap_shader, "full_screen", 0);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui

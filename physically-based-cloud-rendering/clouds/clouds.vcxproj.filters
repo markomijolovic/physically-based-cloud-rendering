@@ -72,6 +72,8 @@
       <Filter>Source Files\shaders</Filter>
     </None>
     <None Include="raymarch_fragment_optimized.glsl" />
+    <None Include="blur_fragment.glsl" />
+    <None Include="tonemap_fragment.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="log.hpp">

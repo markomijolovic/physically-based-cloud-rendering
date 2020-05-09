@@ -6,6 +6,7 @@ in vec2 uvs;
 
 uniform sampler2D full_screen;
 uniform sampler2D weather_map;
+uniform sampler2D blue_noise;
 
 uniform sampler3D cloud_base;
 uniform sampler3D cloud_erosion;
@@ -176,7 +177,7 @@ float ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
     float transmittance = 1.0;
 
     vec3 dir = normalize(end_point - start_point);
-    float step_size = length(end_point - start_point)/(secondary_ray_steps + 1);
+    float step_size = length(end_point - start_point)/(secondary_ray_steps + 1 + 1);
 
     for (int i = 0; i < secondary_ray_steps; i++)
     {
@@ -205,7 +206,13 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
     vec3 dir = normalize(end_point - start_point);
 
+
+    vec2 sample_uvs = uvs*(vec2(1280,720)/vec2(512,512));
+    vec3 noise = texture(blue_noise, sample_uvs).rgb;
     float step_size = length(end_point - start_point)/(primary_ray_steps+1);
+    start_point += noise*step_size;
+    //noise = noise*2.0 - 1.0;
+    //noise=sign(noise)*(1.0-sqrt(1.0-abs(noise)));
 
     // start marching from the beginning
     vec3 current_point = start_point;
@@ -276,11 +283,19 @@ void main()
         vec3 start_point = res.x * ray_world + camera_pos;
         vec3 end_point = res.y * ray_world + camera_pos;
         
+        if (length(end_point - start_point) > primary_ray_steps) 
+        {
+
         vec4 rm = ray_march(start_point, end_point);
 
         // combine with source colour
         colour = colour.rgb*rm.a + rm.rgb;
+        }
     }
+
+    fragment_colour = vec4(colour, 1.0);
+
+    return;
 
     colour = tone_map(colour);
 

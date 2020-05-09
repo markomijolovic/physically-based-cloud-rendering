@@ -14,7 +14,7 @@ struct framebuffer_t
 {
 	framebuffer_t(uint32_t width, uint32_t height, uint32_t num_colour_attachments,
 	              bool         depth,
-	              gl::GLenum   sized_internal_format = gl::GLenum::GL_RGBA8, gl::GLenum format = gl::GLenum::GL_RGBA, gl::GLenum type = gl::GLenum::GL_UNSIGNED_BYTE);
+	              gl::GLenum   sized_internal_format = gl::GLenum::GL_RGBA16F, gl::GLenum format = gl::GLenum::GL_RGBA, gl::GLenum type = gl::GLenum::GL_FLOAT);
 	~framebuffer_t();
 
 	void bind() const;
