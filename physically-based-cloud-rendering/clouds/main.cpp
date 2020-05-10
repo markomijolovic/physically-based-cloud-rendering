@@ -71,10 +71,13 @@ float low_freq_noise_scale{25000.0F};
 float high_freq_noise_scale{1000.0F};
 float scattering_factor = 0.020F;
 float extinction_factor = 0.025F;
-float sun_intensity = 15.0F;
+float sun_intensity = 20.0F;
 float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 1.0F;
+float anvil_bias{ 1.0F };
 bool multiple_scattering_approximation{ true };
+bool blue_noise{};
+bool blur{};
 int N{ 8 };
 float a{0.5F};
 float b{ 0.5F };
@@ -82,7 +85,7 @@ float c{ 0.5F };
 int primary_ray_steps{ 128 };
 int secondary_ray_steps{ 16 };
 float cumulative_time{};
-float cloud_speed{ 0.1F };
+float cloud_speed{ 0.0F };
 glm::vec3 wind_direction{1.0F, 0.0F, 0.0F};
 glm::vec3 wind_direction_normalized{};
 glm::vec3 sun_direction{ -1.0F, -1.0F, 0.0F };
@@ -443,13 +446,18 @@ int main()
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
 		glActiveTexture(gl::GLenum::GL_TEXTURE3);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
-		glActiveTexture(gl::GLenum::GL_TEXTURE4);
-		glBindTexture(gl::GLenum::GL_TEXTURE_2D, blue_noise_texture);
+
 		set_uniform(raymarching_shader, "full_screen", 0);
 		set_uniform(raymarching_shader, "cloud_base", 1);
 		set_uniform(raymarching_shader, "cloud_erosion", 2);
 		set_uniform(raymarching_shader, "weather_map", 3);
-		set_uniform(raymarching_shader, "blue_noise", 4);
+		set_uniform(raymarching_shader, "use_blue_noise", blue_noise);
+		if (blue_noise)
+		{
+			glActiveTexture(gl::GLenum::GL_TEXTURE4);
+			glBindTexture(gl::GLenum::GL_TEXTURE_2D, blue_noise_texture);
+			set_uniform(raymarching_shader, "blue_noise", 4);
+		}
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
 		set_uniform(raymarching_shader, "camera_pos", glm::vec3{camera.transform.position});
@@ -474,33 +482,37 @@ int main()
 		set_uniform(raymarching_shader, "time", cumulative_time);
 		set_uniform(raymarching_shader, "cloud_speed", cloud_speed);
 		set_uniform(raymarching_shader, "global_cloud_coverage", global_cloud_coverage);
+		set_uniform(raymarching_shader, "anvil_bias", anvil_bias);
 		wind_direction_normalized = normalize(wind_direction);
 		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
 		sun_direction_normalized = normalize(sun_direction);
 		set_uniform(raymarching_shader, "sun_direction", sun_direction_normalized);
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
-		// gaussian blur
-		auto horizontal = true;
-		auto amount = 4;
-		gl::glUseProgram(blur_shader);
-		set_uniform(blur_shader, "full_screen", 0);
-		for (unsigned int i = 0; i < amount; i++)
+		if (blur)
 		{
-			if (horizontal)
+			// gaussian blur
+			auto horizontal = true;
+			auto amount = 4;
+			gl::glUseProgram(blur_shader);
+			set_uniform(blur_shader, "full_screen", 0);
+			for (unsigned int i = 0; i < amount; i++)
 			{
-				framebuffer3.bind();
-				framebuffer2.colour_attachments.front().bind(0);
-			}
-			else
-			{
-				framebuffer2.bind();
-				framebuffer3.colour_attachments.front().bind(0);
-			}
-			set_uniform(blur_shader, "horizontal", horizontal);
+				if (horizontal)
+				{
+					framebuffer3.bind();
+					framebuffer2.colour_attachments.front().bind(0);
+				}
+				else
+				{
+					framebuffer2.bind();
+					framebuffer3.colour_attachments.front().bind(0);
+				}
+				set_uniform(blur_shader, "horizontal", horizontal);
 
-			glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
-			horizontal = !horizontal;
+				glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
+				horizontal = !horizontal;
+			}
 		}
 
 		framebuffer_t::unbind();
@@ -540,7 +552,14 @@ int main()
 			ImGui::RadioButton("weather map visualization", &radio_button_value, 1);
 			ImGui::RadioButton("low frequency noise", &radio_button_value, 2);
 			ImGui::RadioButton("high frequency noise", &radio_button_value, 3);
+			ImGui::NewLine();
 
+			ImGui::Checkbox("blue noise jitter", &blue_noise);
+			ImGui::NewLine();
+
+			ImGui::Checkbox("gaussian blur", &blur);
+			ImGui::NewLine();
+			
 			ImGui::SliderFloat("low frequency noise scale", &low_freq_noise_scale, 1000.0F, 100000.0F, "%.0f");
 			ImGui::NewLine();
 			
@@ -548,6 +567,9 @@ int main()
 			ImGui::NewLine();
 			
 			ImGui::SliderFloat("high frequency noise factor", &high_freq_noise_factor, 0.0F, 1.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("anvil bias", &anvil_bias, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.001F, 0.1F, "%.5f");
@@ -565,7 +587,7 @@ int main()
 			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("sun illuminance", &sun_intensity, 10.0F, 200.0F, "%.5f");
+			ImGui::SliderFloat("sun luminance", &sun_intensity, 10.0F, 200.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("global cloud coverage", &global_cloud_coverage, 0.0F, 1.0F, "%.5f");

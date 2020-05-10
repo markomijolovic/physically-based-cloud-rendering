@@ -36,6 +36,8 @@ uniform float cloud_speed;
 uniform vec3 wind_direction;
 uniform vec3 sun_direction;
 uniform float global_cloud_coverage;
+uniform float anvil_bias;
+uniform int use_blue_noise;
 
 const float pi = 3.14159265;
 const float one_over_pi = 0.3183099;
@@ -58,12 +60,9 @@ float get_density_height_gradient_for_point(vec3 point, vec3 weather_data, float
 {
     float cloudt = weather_data.z;
 
-    float cumulus = remap(relative_height, 0.0, 0.3, 0.0, 1.0) * remap(relative_height, 0.7, 1.0, 1.0, 0.0);
-    float stratocumulus = remap(relative_height, 0.1, 0.4, 0.0, 1.0) * remap(relative_height,  0.5, 0.7, 1.0, 0.0); 
-    float stratus = remap(relative_height, 0.0, 0.1, 0.0, 1.0) * remap(relative_height, 0.15, 0.3, 1.0, 0.0); 
-
-    //float a = mix(stratus, stratocumulus, clamp(cloudt * 2.0, 0.0, 1.0));
-    //float b = mix(stratocumulus, cumulus, clamp((cloudt - 0.5) * 2.0, 0.0, 1.0));
+    float cumulus = clamp(remap(relative_height, 0.0, 0.1, 0.0, 1.0),0, 1) * clamp(remap(relative_height, 0.75, 1.0, 1.0, 0.0), 0, 1);
+    float stratocumulus = clamp(remap(relative_height, 0.05, 0.1, 0.0, 1.0), 0, 1) * clamp(remap(relative_height,  0.3, 0.6, 1.0, 0.0), 0, 1); 
+    float stratus = clamp(remap(relative_height, 0.0, 0.01, 0.0, 1.0), 0, 1) * clamp(remap(relative_height, 0.15, 0.3, 1.0, 0.0), 0, 1); 
 
     if (cloudt > 0.5)
     {
@@ -73,8 +72,6 @@ float get_density_height_gradient_for_point(vec3 point, vec3 weather_data, float
     {
         return mix(stratus, stratocumulus, clamp(cloudt * 2.0, 0.0, 1.0));
     }
-
-    //return mix(a, b, cloudt);
 }
 
 float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_height, bool ischeap)
@@ -86,20 +83,20 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                          low_frequency_noises.z * 0.250 +
                          low_frequency_noises.w * 0.125;
 
-    float base_cloud = remap(low_frequency_noises.x, -(1.0 - low_freq_FBM), 1.0, 0.0, 1.0);
+    float base_cloud = remap(low_frequency_noises.x, 1.0 - low_freq_FBM, 1.0, 0.0, 1.0);
     base_cloud = clamp(remap(base_cloud, 1.0 - global_cloud_coverage, 1, 0, 1), 0, 1);
 
     float density_height_gradient = get_density_height_gradient_for_point(samplepoint, weather_data, relative_height);
     base_cloud = base_cloud * density_height_gradient;
 
     float cloud_coverage = weather_data.y;
+    cloud_coverage = pow(cloud_coverage, clamp(remap(relative_height, 0.6, 1.0, 1.0, mix(1.0, 0.5, anvil_bias)), 0, 1));
     if (weather_map_visualization == 1.0)
     {
         return cloud_coverage;   
     }
     float base_cloud_with_coverage = clamp(remap(base_cloud, 1.0 - cloud_coverage, 1.0, 0.0, 1.0), 0, 1);
     
-    base_cloud_with_coverage = clamp(base_cloud_with_coverage, 0.0, 1.0);
     base_cloud_with_coverage *= cloud_coverage;
 
     float final_cloud = base_cloud_with_coverage;
@@ -180,7 +177,7 @@ float ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
     float transmittance = 1.0;
 
     vec3 dir = normalize(end_point - start_point);
-    float step_size = length(end_point - start_point)/(secondary_ray_steps + 1 + 1);
+    float step_size = length(end_point - start_point)/(secondary_ray_steps + 1);
 
     for (int i = 0; i < secondary_ray_steps; i++)
     {
@@ -209,12 +206,16 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
     vec3 dir = normalize(end_point - start_point);
 
-    vec2 sample_uvs = uvs*(vec2(1280,720)/vec2(512,512));
-    vec3 noise = texture(blue_noise, sample_uvs).rgb;
     float step_size = length(end_point - start_point)/(primary_ray_steps+1);
-    start_point += noise*step_size;
-    noise = noise*2.0 - 1.0;
-    noise=sign(noise)*(1.0-sqrt(1.0-abs(noise)));
+
+    if (use_blue_noise)
+    {
+        vec2 sample_uvs = uvs*(vec2(1280,720)/vec2(512,512));
+        vec3 noise = texture(blue_noise, sample_uvs).rgb;
+        //noise = noise*2.0 - 1.0;
+        //noise=sign(noise)*(1.0-sqrt(1.0-abs(noise)));
+        start_point += noise*step_size;
+    }
 
     // start marching from the beginning
     vec3 current_point = start_point;
@@ -273,6 +274,11 @@ void main()
     vec4 ray_eye = inverse(projection)*ray_clip;
     ray_eye = vec4(ray_eye.xy, z, 0.0);
     vec3 ray_world = normalize((inverse(view)*ray_eye).xyz);
+
+    if (dot(ray_world, vec3(0, 1, 0)) < 0)
+    {
+        colour = vec3(87/255.0F,65/255.0F, 47/255.0F );
+    }
 
     // calculate intersection with cloud layer
     vec2 res = intersect_aabb(camera_pos, ray_world, aabb_min, aabb_max);
