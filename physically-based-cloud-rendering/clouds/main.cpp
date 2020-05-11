@@ -69,9 +69,9 @@ bool  options{};
 int   radio_button_value{3};
 float low_freq_noise_scale{25000.0F};
 float high_freq_noise_scale{1000.0F};
-float scattering_factor = 0.020F;
+float scattering_factor = 0.025F;
 float extinction_factor = 0.025F;
-float sun_intensity = 20.0F;
+float sun_intensity = 1.0F;
 float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 1.0F;
 float anvil_bias{ 1.0F };
@@ -88,7 +88,7 @@ float cumulative_time{};
 float cloud_speed{ 0.0F };
 glm::vec3 wind_direction{1.0F, 0.0F, 0.0F};
 glm::vec3 wind_direction_normalized{};
-glm::vec3 sun_direction{ -1.0F, -1.0F, 0.0F };
+glm::vec3 sun_direction{ 0.0F, -1.0F, 0.0F };
 glm::vec3 sun_direction_normalized{};
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
@@ -185,7 +185,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/weather_map.png", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/weather_map_stratocumulus.png", &width, &height, &number_of_components,
 		                                        0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -487,6 +487,7 @@ int main()
 		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
 		sun_direction_normalized = normalize(sun_direction);
 		set_uniform(raymarching_shader, "sun_direction", sun_direction_normalized);
+
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		if (blur)
@@ -587,7 +588,7 @@ int main()
 			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("sun luminance", &sun_intensity, 10.0F, 200.0F, "%.5f");
+			ImGui::SliderFloat("sun luminance", &sun_intensity, 1.0F, 20.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("global cloud coverage", &global_cloud_coverage, 0.0F, 1.0F, "%.5f");
