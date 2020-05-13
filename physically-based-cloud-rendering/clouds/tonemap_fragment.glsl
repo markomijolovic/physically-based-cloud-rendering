@@ -3,6 +3,7 @@ out vec4 fragment_colour;
   
 in vec2 uvs;
 uniform sampler2D full_screen;
+uniform float exposure_factor;
 
 vec3 aces(vec3 x) 
 {
@@ -21,7 +22,7 @@ vec3 tone_map(vec3 x)
 
 vec3 apply_exposure(vec3 colour)
 {
-    return 1 - exp(-colour*0.001F);
+    return 1 - exp(-colour*exposure_factor);
 }
 
 vec3 apply_gamma(vec3 colour)

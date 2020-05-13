@@ -38,6 +38,9 @@ uniform vec3 sun_direction;
 uniform float global_cloud_coverage;
 uniform float anvil_bias;
 uniform int use_blue_noise;
+uniform bool use_ambient;
+uniform vec3 ambient_radiance;
+uniform float turbidity;
 
 const float pi = 3.141592653589793238462643383279502884197169;
 const float one_over_pi = 1.0/pi;
@@ -47,184 +50,111 @@ const vec2 weather_map_min = vec2(-30000, -30000);
 const vec2 weather_map_max = vec2(30000, 30000);
 
 const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
-const vec3 sun_radiance = vec3(25311.6, 26361.3, 24232.3);
 
-// ----------------------------------------------------------------------------
-// Rayleigh and Mie scattering atmosphere system
-//
-// implementation of the techniques described here:
-// http://www.scratchapixel.com/old/lessons/3d-advanced-lessons/simulating-the-colors-of-the-sky/atmospheric-scattering/
-// ----------------------------------------------------------------------------
-
-struct ray_t {
-	vec3 origin;
-	vec3 direction;
-};
-
-struct sphere_t {
-	vec3 origin;
-	float radius;
-	int material;
-};
-
-bool isect_sphere(ray_t ray, sphere_t sphere, inout float t0, inout float t1)
-{
-	vec3 rc = sphere.origin - ray.origin;
-	float radius2 = sphere.radius * sphere.radius;
-	float tca = dot(rc, ray.direction);
-	float d2 = dot(rc, rc) - tca * tca;
-	if (d2 > radius2) return false;
-	float thc = sqrt(radius2 - d2);
-	t0 = tca - thc;
-	t1 = tca + thc;
-
-	return true;
-}
-
-// scattering coefficients at sea level (m)
-const vec3 betaR = vec3(5.5e-6, 13.0e-6, 22.4e-6);  // Rayleigh 
-const vec3 betaM = vec3(21e-6);                     // Mie
-
-// scale height (m)
-// thickness of the atmosphere if its density were uniform
-const float hR = 7994.0; // Rayleigh
-const float hM = 1200.0; // Mie
-
-float rayleigh_phase_func(float mu)
-{
-	return
-			3. * (1. + mu*mu)
-	/ //------------------------
-				(16. * pi);
-}
+const vec3 sun_radiance = vec3(69000, 64000, 59000);
 
 float hg(float costheta, float g) 
 {
     return 0.25 * one_over_pi * (1 - pow(g, 2.0)) / pow((1 + pow(g, 2.0) - 2 * g * costheta), 1.5);
 }
 
-const float earth_radius = 6360e3;      // (m)
-const float atmosphere_radius = 6420e3; // (m)
 const float sun_angular_diameter_cos = 0.999956676946448443553574619906976478926848692873900859324F;
 
-const sphere_t atmosphere = 
+vec3 YxyToXYZ( in vec3 Yxy )
 {
-	vec3(0, 0, 0), atmosphere_radius, 0
-};
+	float Y = Yxy.r;
+	float x = Yxy.g;
+	float y = Yxy.b;
 
-const int num_samples = 16;
-const int num_samples_light = 8;
+	float X = x * ( Y / y );
+	float Z = ( 1.0 - x - y ) * ( Y / y );
 
-bool get_sun_light( ray_t ray,
-	                inout float optical_depthR,
-	                inout float optical_depthM)
-{
-	float t0, t1;
-	isect_sphere(ray, atmosphere, t0, t1);
-
-	float march_pos = 0.;
-	float march_step = t1 / float(num_samples_light);
-
-	for (int i = 0; i < num_samples_light; i++) {
-		vec3 s =
-			ray.origin +
-			ray.direction * (march_pos + 0.5 * march_step);
-		float height = length(s) - earth_radius;
-		if (height < 0.)
-			return false;
-
-		optical_depthR += exp(-height / hR) * march_step;
-		optical_depthM += exp(-height / hM) * march_step;
-
-		march_pos += march_step;
-	}
-
-	return true;
+	return vec3(X,Y,Z);
 }
 
-vec3 get_incident_light(ray_t ray)
+vec3 XYZToRGB( in vec3 XYZ )
 {
-	// "pierce" the atmosphere with the viewing ray
-	float t0, t1;
-	if (!isect_sphere(
-		ray, atmosphere, t0, t1)) {
-		return vec3(0);
-	}
+	// CIE/E
+	mat3 M = mat3
+	(
+		 2.3706743, -0.9000405, -0.4706338,
+		-0.5138850,  1.4253036,  0.0885814,
+ 		 0.0052982, -0.0146949,  1.0093968
+	);
 
-	float march_step = t1 / float(num_samples);
-
-	// cosine of angle between view and light directions
-	float mu = dot(ray.direction, -sun_direction);
-
-	// Rayleigh and Mie phase functions
-	// A black box indicating how light is interacting with the material
-	// Similar to BRDF except
-	// * it usually considers a single angle
-	//   (the phase angle between 2 directions)
-	// * integrates to 1 over the entire sphere of directions
-	float phaseR = rayleigh_phase_func(mu);
-	float phaseM = hg(mu, 0.76);
-
-	// optical depth (or "average density")
-	// represents the accumulated extinction coefficients
-	// along the path, multiplied by the length of that path
-	float optical_depthR = 0.;
-	float optical_depthM = 0.;
-
-	vec3 sumR = vec3(0);
-	vec3 sumM = vec3(0);
-	float march_pos = 0.;
-
-	for (int i = 0; i < num_samples; i++) {
-		vec3 s =
-			ray.origin +
-			ray.direction * (march_pos + 0.5 * march_step);
-		float height = length(s) - earth_radius;
-
-		// integrate the height scale
-		float hr = exp(-height / hR) * march_step;
-		float hm = exp(-height / hM) * march_step;
-		optical_depthR += hr;
-		optical_depthM += hm;
-
-		// gather the sunlight
-		ray_t light_ray = {s,
-			-sun_direction
-		};
-		float optical_depth_lightR = 0.;
-		float optical_depth_lightM = 0.;
-		bool overground = get_sun_light(
-			light_ray,
-			optical_depth_lightR,
-			optical_depth_lightM);
-
-		if (overground) {
-			vec3 tau =
-				betaR * (optical_depthR + optical_depth_lightR) +
-				betaM  * (optical_depthM + optical_depth_lightM);
-			vec3 attenuation = exp(-tau);
-
-			sumR += hr * attenuation;
-			sumM += hm * attenuation;
-		}
-
-		march_pos += march_step;
-	}
-
-    vec3 ret = sun_radiance *
-		(sumR * phaseR * betaR +
-		sumM * phaseM * betaM);
-
-    float sundisk = smoothstep(sunAngularDiameterCos,sunAngularDiameterCos+0.00002,mu);
-    ret += sundisk*sun_radiance;    // todo: extinction
-
-	return ret;		
+	return XYZ * M;
 }
 
-vec3 tone_map(vec3 x) 
+
+float saturatedDot( in vec3 a, in vec3 b )
 {
-    return x/(x+1);
+	return max( dot( a, b ), 0.0 );   
 }
+
+vec3 YxyToRGB( in vec3 Yxy )
+{
+	vec3 XYZ = YxyToXYZ( Yxy );
+	vec3 RGB = XYZToRGB( XYZ );
+	return RGB;
+}
+
+void calculatePerezDistribution( in float t, out vec3 A, out vec3 B, out vec3 C, out vec3 D, out vec3 E )
+{
+	A = vec3(  0.1787 * t - 1.4630, -0.0193 * t - 0.2592, -0.0167 * t - 0.2608 );
+	B = vec3( -0.3554 * t + 0.4275, -0.0665 * t + 0.0008, -0.0950 * t + 0.0092 );
+	C = vec3( -0.0227 * t + 5.3251, -0.0004 * t + 0.2125, -0.0079 * t + 0.2102 );
+	D = vec3(  0.1206 * t - 2.5771, -0.0641 * t - 0.8989, -0.0441 * t - 1.6537 );
+	E = vec3( -0.0670 * t + 0.3703, -0.0033 * t + 0.0452, -0.0109 * t + 0.0529 );
+}
+
+vec3 calculateZenithLuminanceYxy( in float t, in float thetaS )
+{
+	float chi  	 	= ( 4.0 / 9.0 - t / 120.0 ) * ( pi - 2.0 * thetaS );
+	float Yz   	 	= ( 4.0453 * t - 4.9710 ) * tan( chi ) - 0.2155 * t + 2.4192;
+
+	float theta2 	= thetaS * thetaS;
+    float theta3 	= theta2 * thetaS;
+    float T 	 	= t;
+    float T2 	 	= t * t;
+
+	float xz =
+      ( 0.00165 * theta3 - 0.00375 * theta2 + 0.00209 * thetaS + 0.0)     * T2 +
+      (-0.02903 * theta3 + 0.06377 * theta2 - 0.03202 * thetaS + 0.00394) * T +
+      ( 0.11693 * theta3 - 0.21196 * theta2 + 0.06052 * thetaS + 0.25886);
+
+    float yz =
+      ( 0.00275 * theta3 - 0.00610 * theta2 + 0.00317 * thetaS + 0.0)     * T2 +
+      (-0.04214 * theta3 + 0.08970 * theta2 - 0.04153 * thetaS + 0.00516) * T +
+      ( 0.15346 * theta3 - 0.26756 * theta2 + 0.06670 * thetaS + 0.26688);
+
+	return vec3( Yz, xz, yz );
+}
+
+vec3 calculatePerezLuminanceYxy( in float theta, in float gamma, in vec3 A, in vec3 B, in vec3 C, in vec3 D, in vec3 E )
+{
+	return ( 1.0 + A * exp( B / cos( theta ) ) ) * ( 1.0 + C * exp( D * gamma ) + E * cos( gamma ) * cos( gamma ) );
+}
+
+vec3 calculateSkyLuminanceRGB( in vec3 s, in vec3 e, in float t )
+{
+	vec3 A, B, C, D, E;
+	calculatePerezDistribution( t, A, B, C, D, E );
+
+	float thetaS = acos( saturatedDot( s, vec3(0,1,0) ) );
+	float thetaE = acos( saturatedDot( e, vec3(0,1,0) ) );
+	float gammaE = acos( saturatedDot( s, e )		   );
+
+	vec3 Yz = calculateZenithLuminanceYxy( t, thetaS );
+
+	vec3 fThetaGamma = calculatePerezLuminanceYxy( thetaE, gammaE, A, B, C, D, E );
+	vec3 fZeroThetaS = calculatePerezLuminanceYxy( 0.0,    thetaS, A, B, C, D, E );
+
+	vec3 Yp = Yz * ( fThetaGamma / fZeroThetaS );
+
+	return YxyToRGB( Yp );
+}
+
+vec3 ambient = 683.0F*(calculateSkyLuminanceRGB(-sun_direction, vec3(0, 1, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(-1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, 1), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, -1), turbidity))/5;
 
 float remap(float original_value , float original_min , float original_max , float new_min , float new_max) 
 {
@@ -235,8 +165,8 @@ float get_density_height_gradient_for_point(vec3 point, vec3 weather_data, float
 {
     float cloudt = weather_data.z;
 
-    float cumulus = clamp(remap(relative_height, 0.0, 0.1, 0.0, 1.0),0, 1) * clamp(remap(relative_height, 0.75, 1.0, 1.0, 0.0), 0, 1);
-    float stratocumulus = clamp(remap(relative_height, 0.05, 0.1, 0.0, 1.0), 0, 1) * clamp(remap(relative_height,  0.3, 0.6, 1.0, 0.0), 0, 1); 
+    float cumulus = clamp(remap(relative_height, 0.0, 0.3, 0.0, 1.0),0, 1) * clamp(remap(relative_height, 0.75, 1.0, 1.0, 0.0), 0, 1);
+    float stratocumulus = clamp(remap(relative_height, 0.1, 0.25, 0.0, 1.0), 0, 1) * clamp(remap(relative_height,  0.4, 0.6, 1.0, 0.0), 0, 1); 
     float stratus = clamp(remap(relative_height, 0.0, 0.01, 0.0, 1.0), 0, 1) * clamp(remap(relative_height, 0.15, 0.3, 1.0, 0.0), 0, 1); 
 
     if (cloudt > 0.5)
@@ -251,30 +181,34 @@ float get_density_height_gradient_for_point(vec3 point, vec3 weather_data, float
 
 float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_height, bool ischeap)
 {
-    samplepoint += (wind_direction + vec3(0.0, 0.1, 0.0))*time*cloud_speed;
+    samplepoint += (wind_direction)*time*cloud_speed;
 
     vec4 low_frequency_noises = texture(cloud_base, samplepoint/low_freq_noise_scale);
     float low_freq_FBM = low_frequency_noises.y * 0.625 + 
                          low_frequency_noises.z * 0.250 +
                          low_frequency_noises.w * 0.125;
 
-    float base_cloud = remap(low_frequency_noises.x, 1.0 - low_freq_FBM, 1.0, 0.0, 1.0);
+    float base_cloud = remap(low_frequency_noises.x, -(1.0 - low_freq_FBM), 1.0, 0.0, 1.0);
     base_cloud = clamp(remap(base_cloud, 1.0 - global_cloud_coverage, 1, 0, 1), 0, 1);
 
     float density_height_gradient = get_density_height_gradient_for_point(samplepoint, weather_data, relative_height);
     base_cloud = base_cloud * density_height_gradient;
 
-    float cloud_coverage = weather_data.y;
-    cloud_coverage = pow(cloud_coverage, clamp(remap(relative_height, 0.6, 1.0, 1.0, mix(1.0, 0.5, anvil_bias)), 0, 1));
+    float cloud_coverage = 1;
+
     if (weather_map_visualization == 1.0)
     {
-        return cloud_coverage;   
+        cloud_coverage =    weather_data.y;
     }
+
+    base_cloud = pow(base_cloud, mix(1, clamp(remap(relative_height, 0.5, 1.0, 1.0, 10.0), 1, 10), 1.0 - anvil_bias));
+    //base_cloud = pow(base_cloud, remap(relative_height, 0, 1, 1, 10)); 
+
     float base_cloud_with_coverage = clamp(remap(base_cloud, 1.0 - cloud_coverage, 1.0, 0.0, 1.0), 0, 1);
-    
     base_cloud_with_coverage *= cloud_coverage;
 
     float final_cloud = base_cloud_with_coverage;
+
     if (low_frequency_noise_visualization == 1.0)
     {
         return final_cloud;
@@ -289,7 +223,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                                 + (high_frequency_noises.y * 0.250)
                                 + (high_frequency_noises.z * 0.125);
 
-        float high_freq_noise_modifier = mix(high_freq_FBM, 1.0 - high_freq_FBM, clamp(relative_height * 10.0, 0.0, 1.0));
+        float high_freq_noise_modifier = mix(high_freq_FBM, (1.0 - high_freq_FBM), clamp(relative_height * 10.0, 0.0, 1.0));
         final_cloud = clamp(remap(base_cloud_with_coverage, high_freq_noise_modifier * high_freq_noise_factor, 1.0, 0.0, 1.0), 0.0, 1.0); 
     }
 
@@ -339,7 +273,14 @@ vec3 ray_march_to_sun(vec3 start_point, vec3 end_point, vec3 prev_dir)
         transmittance *= exp(-cloud_density*extinction_factor*step_size);
     }
 
-    return transmittance * ph * sun_intensity*sun_radiance;
+    if (use_ambient)
+    {
+        return transmittance  * sun_intensity*(sun_radiance* ph + ambient_radiance);
+    }
+    else 
+    {
+        return transmittance * ph * sun_intensity*sun_radiance;
+    }
 }
 
 vec3 ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
@@ -358,15 +299,22 @@ vec3 ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
         transmittance *= exp(-cloud_density*extinction_factor*step_size);
     }
 
-    float retval = 0;
+    vec3 retval = vec3(0);
 
     for (int i = 0; i < N; i++)
     {
         float ph = phase_ms(-dir, -prev_dir, i);
-        retval += pow(b, i)*ph*pow(transmittance, pow(a,i));
+        if (use_ambient)
+        {
+            retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*sun_radiance + ambient_radiance);
+        }
+        else 
+        {
+            retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*sun_radiance);
+        }
     }
 
-    return retval*sun_radiance;
+    return retval;
 }
 
 vec4 ray_march(vec3 start_point, vec3 end_point)
@@ -406,6 +354,7 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
         // compute radiance from sun
         vec3 dir_to_sun = -sun_direction;
+
         vec2 inter = intersect_aabb(current_point, dir_to_sun, aabb_min, aabb_max);
         vec3 end_point_to_sun = inter.y*dir_to_sun + current_point;
 
@@ -434,8 +383,6 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
 void main()
 {
-    vec3 colour = vec3(0.53, 0.81, 0.92);
-
     // calculate ray in world space
     float x = uvs.x*2.0 - 1.0;
     float y = uvs.y*2.0 - 1.0;
@@ -444,14 +391,11 @@ void main()
     vec4 ray_eye = inverse(projection)*ray_clip;
     ray_eye = vec4(ray_eye.xy, z, 0.0);
     vec3 ray_world = normalize((inverse(view)*ray_eye).xyz);
-   
-    ray_t ray = {vec3(0, earth_radius, 0), ray_world};
 
-    colour = get_incident_light(ray);
+    vec3 colour = calculateSkyLuminanceRGB( -sun_direction, ray_world, turbidity );
 
     if (dot(ray_world, -sun_direction) > 0.9998)
-        colour += sun_radiance;
-
+        colour += 10*sun_radiance/683.0F;
 
     // calculate intersection with cloud layer
     vec2 res = intersect_aabb(camera_pos, ray_world, aabb_min, aabb_max);
@@ -468,9 +412,9 @@ void main()
         {
 
             vec4 rm = ray_march(start_point, end_point);
-
+            
             // combine with source colour
-            colour = colour.rgb*rm.a + rm.rgb;
+            colour = colour.rgb*rm.a + rm.rgb/683.0F;
         }
     }
 

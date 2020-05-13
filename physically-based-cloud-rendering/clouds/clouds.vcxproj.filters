@@ -59,12 +59,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="cloud_fragment.glsl">
-      <Filter>Source Files\shaders</Filter>
-    </None>
-    <None Include="cloud_vertex.glsl">
-      <Filter>Source Files\shaders</Filter>
-    </None>
     <None Include="raymarch_fragment.glsl">
       <Filter>Source Files\shaders</Filter>
     </None>
@@ -122,6 +116,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="imstb_truetype.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="preetham.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

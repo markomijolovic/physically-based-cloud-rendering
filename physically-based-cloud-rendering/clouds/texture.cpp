@@ -19,6 +19,7 @@ texture_t::texture_t(uint32_t width, uint32_t height, gl::GLenum sized_internal_
 
 	bind();
 
+
 	gl::glTexStorage2D(gl::GLenum::GL_TEXTURE_2D, 1, sized_internal_format, width, height);
 	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, filtering_min);
 	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, filtering_mag);
