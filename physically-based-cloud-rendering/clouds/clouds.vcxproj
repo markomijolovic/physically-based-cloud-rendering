@@ -155,11 +155,11 @@
     <ClCompile Include="transforms.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="cloud_fragment.glsl" />
-    <None Include="cloud_vertex.glsl" />
+    <None Include="blur_fragment.glsl" />
     <None Include="raymarch_fragment.glsl" />
     <None Include="raymarch_fragment_optimized.glsl" />
     <None Include="raymarch_vertex.glsl" />
+    <None Include="tonemap_fragment.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aabb.hpp" />
@@ -174,6 +174,7 @@
     <ClInclude Include="imstb_textedit.h" />
     <ClInclude Include="imstb_truetype.h" />
     <ClInclude Include="log.hpp" />
+    <ClInclude Include="preetham.hpp" />
     <ClInclude Include="texture.hpp" />
     <ClInclude Include="transform.hpp" />
     <ClInclude Include="transforms.hpp" />
