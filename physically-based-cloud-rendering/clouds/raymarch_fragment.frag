@@ -328,7 +328,7 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
 
     float step_size = len/(primary_ray_steps+1);
 
-    if (use_blue_noise)
+    if (use_blue_noise == 1.0)
     {
         vec2 sample_uvs = uvs*(vec2(1280,720)/vec2(512,512));
         vec3 noise = texture(blue_noise, sample_uvs).rgb;
@@ -359,7 +359,7 @@ vec4 ray_march(vec3 start_point, vec3 end_point)
         vec3 end_point_to_sun = inter.y*dir_to_sun + current_point;
 
         vec3 radiance;
-        if (multiple_scattering_approximation)
+        if (multiple_scattering_approximation == 1.0)
         {
              radiance =  ray_march_to_sun_ms(current_point, end_point_to_sun, dir);
         }
