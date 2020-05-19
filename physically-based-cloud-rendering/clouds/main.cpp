@@ -35,7 +35,7 @@
 #include "imgui_impl_opengl3.h"
 #include "preetham.hpp"
 
-constexpr auto screen_width  = 1280;
+constexpr auto screen_width = 1280;
 constexpr auto screen_height = 720;
 
 constexpr float full_screen_quad[][5] =
@@ -46,7 +46,7 @@ constexpr float full_screen_quad[][5] =
 	{-1.0F, 1.0F, 0.0F, 0.0F, 1.0F}
 };
 
-constexpr int quad_indices[] = {0, 1, 2, 2, 3, 0};
+constexpr int quad_indices[] = { 0, 1, 2, 2, 3, 0 };
 
 camera_t camera
 {
@@ -61,19 +61,20 @@ camera_t camera
 
 std::unordered_map<int, bool> buttons{};
 
-bool  first_mouse{true};
+bool  first_mouse{ true };
 float x{};
 float y{};
 float x_offset{};
 float y_offset{};
 bool  options{};
-int   radio_button_value{3};
-float low_freq_noise_scale{20000.0F};
-float high_freq_noise_scale{2000.0F};
+int   radio_button_value{ 3 };
+float low_freq_noise_scale{ 7000.0F };
+float high_freq_noise_scale{ 1750.0F };
+float weather_map_scale{ 30000.0F };
 float scattering_factor = 0.025F;
 float extinction_factor = 0.025F;
 float sun_intensity = 1.0F;
-float global_cloud_coverage = 0.6F;
+float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 0.5F;
 float anvil_bias{ 1.0F };
 float exposure_factor{ 0.025F };
@@ -81,17 +82,17 @@ float turbidity{ 5.0F };
 bool multiple_scattering_approximation{ true };
 bool blue_noise{};
 bool blur{};
-bool weather_map{ false };
+bool weather_map{ true };
 bool ambient{ true };
 int N{ 8 };
-float a{0.5F};
+float a{ 0.5F };
 float b{ 0.5F };
 float c{ 0.5F };
-int primary_ray_steps{ 128 };
+int primary_ray_steps{ 64 };
 int secondary_ray_steps{ 16 };
 float cumulative_time{};
 float cloud_speed{ 0.0F };
-glm::vec3 wind_direction{1.0F, 0.0F, 0.0F};
+glm::vec3 wind_direction{ 1.0F, 0.0F, 0.0F };
 glm::vec3 wind_direction_normalized{};
 glm::vec3 sun_direction{ 0.0F, -1.0F, 0.0F };
 glm::vec3 sun_direction_normalized{};
@@ -174,12 +175,12 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto cloud_erosion_image = stbi_load("textures/noise_erosion.tga", &width, &height, &number_of_components,
-		                                           0);
+		const auto cloud_erosion_image = stbi_load("textures/noise_erosion_hd.tga", &width, &height, &number_of_components,
+			0);
 
 		gl::glGenTextures(1, &cloud_erosion_texture);
 
-		const auto levels = static_cast<uint32_t>(floor(log2(32))) + 1;
+		const auto levels = static_cast<uint32_t>(floor(log2(64))) + 1;
 
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
 		float aniso{};
@@ -188,15 +189,36 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 
-		gl::glTexStorage3D(gl::GLenum::GL_TEXTURE_3D, levels, gl::GLenum::GL_RGBA8, 32, 32, 32);
+		gl::glTexStorage3D(gl::GLenum::GL_TEXTURE_3D, levels, gl::GLenum::GL_RGBA8, 64, 64, 64);
 
-		glTexSubImage3D(gl::GLenum::GL_TEXTURE_3D, 0, 0, 0, 0, 32, 32, 32, gl::GLenum::GL_RGBA, gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
+		glTexSubImage3D(gl::GLenum::GL_TEXTURE_3D, 0, 0, 0, 0, 64, 64, 64, gl::GLenum::GL_RGBA, gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
 
 		glGenerateMipmap(gl::GLenum::GL_TEXTURE_3D);
 
-		
+
 		log_opengl_error();
 		stbi_image_free(cloud_erosion_image);
+	}
+
+	gl::GLuint mie_texture; // mie phase function
+	{
+		int        width;
+		int        height;
+		int        number_of_components;
+		const auto cloud_base_image = stbi_loadf("textures/mie_texture.hdr", &width, &height, &number_of_components, 0);
+
+		gl::glGenTextures(1, &mie_texture);
+
+		glBindTexture(gl::GLenum::GL_TEXTURE_1D, mie_texture);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_1D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_1D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		const auto levels = static_cast<uint32_t>(floor(log2(1801))) + 1;
+
+		gl::glTexStorage1D(gl::GLenum::GL_TEXTURE_1D, levels, gl::GLenum::GL_RGB32F, 1801);
+		glTexSubImage1D(gl::GLenum::GL_TEXTURE_1D, 0, 0, width, gl::GLenum::GL_RGB,
+			gl::GLenum::GL_FLOAT, cloud_base_image);
+		log_opengl_error();
+		stbi_image_free(cloud_base_image);
 	}
 
 	// load weather map
@@ -207,8 +229,8 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/perlin_noise.tga", &width, &height, &number_of_components,
-		                                        0);
+		const auto weather_map_data = stbi_load("textures/perlin_test_stratus.tga", &width, &height, &number_of_components,
+			0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
@@ -218,7 +240,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
 
 		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
-		             gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 		log_opengl_error();
 		stbi_image_free(weather_map_data);
 	}
@@ -262,31 +284,31 @@ int main()
 	glBufferData(gl::GLenum::GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), quad_indices, gl::GLenum::GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, gl::GLenum::GL_FLOAT, false, 5 * sizeof(float), reinterpret_cast<void*>(0));
 	glVertexAttribPointer(1, 2, gl::GLenum::GL_FLOAT, false, 5 * sizeof(float),
-	                      reinterpret_cast<void*>(3 * sizeof(float)));
+		reinterpret_cast<void*>(3 * sizeof(float)));
 	gl::glEnableVertexAttribArray(0);
 	gl::glEnableVertexAttribArray(1);
 	log_opengl_error();
 
-	
+
 	// load raymarching shader
 	gl::GLuint raymarching_shader;
 	{
 		std::string vertex_code{};
 		std::string fragment_code{};
 
-		std::ifstream vertex_file{"raymarch_vertex.glsl"};
-		
-		std::ifstream fragment_file{"raymarch_fragment.glsl"};
-		
+		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+
+		std::ifstream fragment_file{ "raymarch_fragment.frag" };
+
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
 		vertex_stream << vertex_file.rdbuf();
 		fragment_stream << fragment_file.rdbuf();
 
-		vertex_code   = vertex_stream.str();
+		vertex_code = vertex_stream.str();
 		fragment_code = fragment_stream.str();
 
-		auto p_vertex_data   = vertex_code.data();
+		auto p_vertex_data = vertex_code.data();
 		auto p_fragment_data = fragment_code.data();
 
 		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
@@ -389,9 +411,9 @@ int main()
 	log_opengl_error();
 
 	// create framebuffers
-	framebuffer_t framebuffer{screen_width, screen_height, 1, true};
-	framebuffer_t framebuffer2{screen_width, screen_height, 1, true};
-	framebuffer_t framebuffer3{screen_width, screen_height, 1, true};
+	framebuffer_t framebuffer{ screen_width, screen_height, 1, true };
+	framebuffer_t framebuffer2{ screen_width, screen_height, 1, true };
+	framebuffer_t framebuffer3{ screen_width, screen_height, 1, true };
 
 	auto delta_time = 1.0F / 60.0F;
 	auto now = std::chrono::high_resolution_clock::now();
@@ -403,9 +425,9 @@ int main()
 		delta_time = std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - now).count();
 		now = std::chrono::high_resolution_clock::now();
 		cumulative_time += delta_time;
-		
+
 		process_input(delta_time);
-		
+
 		std::cout << "Delta time: " << delta_time << std::endl;
 
 		// raymarching
@@ -429,16 +451,21 @@ int main()
 			glBindTexture(gl::GLenum::GL_TEXTURE_2D, blue_noise_texture);
 			set_uniform(raymarching_shader, "blue_noise", 4);
 		}
+		glActiveTexture(gl::GLenum::GL_TEXTURE5);
+		glBindTexture(gl::GLenum::GL_TEXTURE_1D, mie_texture);
+		set_uniform(raymarching_shader, "mie_texture", 5);
+
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
-		set_uniform(raymarching_shader, "camera_pos", glm::vec3{camera.transform.position});
+		set_uniform(raymarching_shader, "camera_pos", glm::vec3{ camera.transform.position });
 		set_uniform(raymarching_shader, "weather_map_visualization", weather_map);
 		set_uniform(raymarching_shader, "low_frequency_noise_visualization",
-		            static_cast<int>(radio_button_value == 2));
+			static_cast<int>(radio_button_value == 2));
 		set_uniform(raymarching_shader, "high_frequency_noise_visualization",
-		            static_cast<int>(radio_button_value == 3));
+			static_cast<int>(radio_button_value == 3));
 		set_uniform(raymarching_shader, "multiple_scattering_approximation", multiple_scattering_approximation);
 		set_uniform(raymarching_shader, "low_freq_noise_scale", low_freq_noise_scale);
+		set_uniform(raymarching_shader, "weather_map_scale", weather_map_scale);
 		set_uniform(raymarching_shader, "high_freq_noise_scale", high_freq_noise_scale);
 		set_uniform(raymarching_shader, "scattering_factor", scattering_factor);
 		set_uniform(raymarching_shader, "extinction_factor", extinction_factor);
@@ -461,7 +488,7 @@ int main()
 		set_uniform(raymarching_shader, "use_ambient", ambient);
 		set_uniform(raymarching_shader, "turbidity", turbidity);
 
-		static std::array<glm::vec3,5> arr
+		static std::array<glm::vec3, 5> arr
 		{
 			glm::vec3{ 0, 1, 0 }, normalize(glm::vec3{ 1, 0.01, 0 }),  glm::vec3{ -1, 0.01, 0 }, glm::vec3{ 0, 0.01, 1 }, glm::vec3{ 0, 0.01, -1 }
 		};
@@ -469,15 +496,15 @@ int main()
 		// use average of 5 samples as ambient radiance
 		// this could really be improved (and done on the GPU as well)
 		glm::vec3 ambient_radiance{};
-		for (auto &el: arr)
+		for (auto& el : arr)
 		{
-			ambient_radiance += 683.0F*calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
+			ambient_radiance += 683.0F * calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
 		}
 		ambient_radiance /= 5.0F;
 		std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
 
 		set_uniform(raymarching_shader, "ambient_radiance", ambient_radiance);
-		
+
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		if (blur)
@@ -525,9 +552,9 @@ int main()
 		ImGui::Text("average frametime: %.2f ms", 1000.0F / ImGui::GetIO().Framerate);
 		ImGui::Text("time elapsed: %.2f ms", cumulative_time);
 		ImGui::Text("camera world position: x=%f, y=%f, z=%f",
-		            camera.transform.position.x,
-		            camera.transform.position.y,
-		            camera.transform.position.z);
+			camera.transform.position.x,
+			camera.transform.position.y,
+			camera.transform.position.z);
 		ImGui::Text("press 'o' to toggle options");
 		ImGui::End();
 
@@ -537,7 +564,7 @@ int main()
 
 			ImGui::SliderInt("number of primary ray steps", &primary_ray_steps, 1, 500, "%d");
 			ImGui::NewLine();
-			
+
 			ImGui::SliderInt("number of secondary ray steps", &secondary_ray_steps, 1, 100, "%d");
 			ImGui::NewLine();
 
@@ -553,23 +580,26 @@ int main()
 
 			ImGui::Checkbox("gaussian blur", &blur);
 			ImGui::NewLine();
-			
-			ImGui::SliderFloat("low frequency noise scale", &low_freq_noise_scale, 10.0F, 200000.0F, "%.0f");
+
+			ImGui::SliderFloat("low frequency noise scale", &low_freq_noise_scale, 10.0F, 200000.0F, "%.5f");
 			ImGui::NewLine();
-			
-			ImGui::SliderFloat("high frequency noise scale", &high_freq_noise_scale, 10.0F, 10000.0F, "%.0f");
+
+			ImGui::SliderFloat("high frequency noise scale", &high_freq_noise_scale, 10.0F, 10000.0F, "%.5f");
 			ImGui::NewLine();
-			
+
+			ImGui::SliderFloat("weather map scale", &weather_map_scale, 3000.0F, 300000.0F, "%.5f");
+			ImGui::NewLine();
+
 			ImGui::SliderFloat("high frequency noise factor", &high_freq_noise_factor, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("anvil bias", &anvil_bias, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.001F, 0.1F, "%.5f");
+			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.01F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.001F, 0.1F, "%.5f");
+			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.01F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat3("wind direction", &wind_direction[0], -1.0F, 1.0F, "%.5f");
@@ -577,7 +607,7 @@ int main()
 
 			ImGui::SliderFloat3("sun direction", &sun_direction[0], -1.0F, 0.0F, "%.5f");
 			ImGui::NewLine();
-			
+
 			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
 			ImGui::NewLine();
 
@@ -592,7 +622,7 @@ int main()
 
 			ImGui::Checkbox("approximate ambient light", &ambient);
 			ImGui::NewLine();
-			
+
 			ImGui::Checkbox("multiple scattering approximation", &multiple_scattering_approximation);
 			ImGui::NewLine();
 
@@ -607,7 +637,7 @@ int main()
 
 			ImGui::SliderFloat("eccentricity attenuation", &c, 0.01F, 1.0F, "%.2f");
 			ImGui::NewLine();
-			
+
 			ImGui::End();
 		}
 
@@ -633,9 +663,9 @@ static void process_input(float dt)
 
 	auto view_matrix = camera.transform.get_view_matrix();
 
-	const auto right   = glm::vec3{view_matrix[0][0], view_matrix[1][0], view_matrix[2][0]};
-	const auto up      = glm::vec3{view_matrix[0][1], view_matrix[1][1], view_matrix[2][1]};
-	const auto forward = -glm::vec3{view_matrix[0][2], view_matrix[1][2], view_matrix[2][2]};
+	const auto right = glm::vec3{ view_matrix[0][0], view_matrix[1][0], view_matrix[2][0] };
+	const auto up = glm::vec3{ view_matrix[0][1], view_matrix[1][1], view_matrix[2][1] };
+	const auto forward = -glm::vec3{ view_matrix[0][2], view_matrix[1][2], view_matrix[2][2] };
 
 
 	glm::vec3 trans{};
@@ -676,14 +706,14 @@ static void process_input(float dt)
 	{
 		camera.transform.rotation.y -= x_offset * camera.mouse_sensitivity;
 		camera.transform.rotation.y = std::fmod(camera.transform.rotation.y, 360.0F);
-		x_offset                    = 0.0F;
+		x_offset = 0.0F;
 	}
 
 	if (y_offset != 0.0F)
 	{
 		camera.transform.rotation.x -= y_offset * camera.mouse_sensitivity;
 		camera.transform.rotation.x = std::clamp(camera.transform.rotation.x, -89.0F, 89.0F);
-		y_offset                    = 0.0F;
+		y_offset = 0.0F;
 	}
 }
 
@@ -721,8 +751,8 @@ static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos)
 {
 	if (first_mouse)
 	{
-		x           = static_cast<float>(x_pos);
-		y           = static_cast<float>(y_pos);
+		x = static_cast<float>(x_pos);
+		y = static_cast<float>(y_pos);
 		first_mouse = false;
 	}
 
