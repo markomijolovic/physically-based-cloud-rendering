@@ -40,7 +40,7 @@ uniform float global_cloud_coverage;
 uniform float anvil_bias;
 uniform int use_blue_noise;
 uniform bool use_ambient;
-uniform vec3 ambient_radiance;
+uniform vec3 ambient_luminance;
 uniform float turbidity;
 
 const float pi = 3.141592653589793238462643383279502884197169;
@@ -50,9 +50,7 @@ const vec3 aabb_max = vec3(30000, 4000, 30000);
 const vec2 weather_map_min = vec2(-30000, -30000);
 const vec2 weather_map_max = vec2(30000, 30000);
 
-const float sunAngularDiameterCos = 0.999956676946448443553574619906976478926848692873900859324;
-
-const vec3 sun_radiance = vec3(69000, 64000, 59000);
+const vec3 sun_luminance = 683*vec3(69000, 64000, 59000);
 
 float hg(float costheta, float g) 
 {
@@ -155,7 +153,7 @@ vec3 calculateSkyLuminanceRGB( in vec3 s, in vec3 e, in float t )
 	return YxyToRGB( Yp );
 }
 
-vec3 ambient = 683.0F*(calculateSkyLuminanceRGB(-sun_direction, vec3(0, 1, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(-1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, 1), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, -1), turbidity))/5;
+//vec3 ambient = (calculateSkyLuminanceRGB(-sun_direction, vec3(0, 1, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(-1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, 1), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, -1), turbidity))/5;
 
 float remap(float original_value , float original_min , float original_max , float new_min , float new_max) 
 {
@@ -315,11 +313,11 @@ vec3 ray_march_to_sun(vec3 start_point, vec3 end_point, vec3 prev_dir)
 
     if (use_ambient)
     {
-        return transmittance*(sun_radiance* ph + ambient_radiance);
+        return transmittance*(sun_luminance*1/(4*pi)*0.0000711*ph + ambient_luminance);
     }
     else 
     {
-        return transmittance * ph*sun_radiance;
+        return transmittance * ph*1/(4*pi)*0.0000711*sun_luminance;
     }
 }
 
@@ -346,11 +344,11 @@ vec3 ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
         vec3 ph = phase_ms(-dir, -prev_dir, i);
         if (use_ambient)
         {
-            retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*sun_radiance + ambient_radiance);
+            retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*1/(4*pi)*0.0000711*sun_luminance + ambient_luminance);
         }
         else 
         {
-            retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*sun_radiance);
+            retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*1/(4*pi)*0.0000711*sun_luminance);
         }
     }
 
@@ -434,8 +432,8 @@ void main()
 
     vec3 colour = calculateSkyLuminanceRGB( -sun_direction, ray_world, turbidity );
 
-    float sundisk = smoothstep(sunAngularDiameterCos,sunAngularDiameterCos+0.0002,dot(ray_world, -sun_direction));
-    colour += sundisk*10*sun_radiance/683.0F;
+    float sundisk = smoothstep(sun_angular_diameter_cos,sun_angular_diameter_cos+0.0002,dot(ray_world, -sun_direction));
+    colour += sundisk*sun_luminance;
 
     // calculate intersection with cloud layer
     vec2 res = intersect_aabb(camera_pos, ray_world, aabb_min, aabb_max);
@@ -454,7 +452,7 @@ void main()
             vec4 rm = ray_march(start_point, end_point);
             
             // combine with source colour
-            colour = colour.rgb*rm.a + rm.rgb/683.0F;
+            colour = colour.rgb*rm.a + rm.rgb;
         }
     }
 
