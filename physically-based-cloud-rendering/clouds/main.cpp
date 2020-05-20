@@ -1,5 +1,12 @@
 #define GLFW_INCLUDE_NONE
 
+#define TINYEXR_IMPLEMENTATION
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
+#include "tinyexr.h"
+
 #include <fstream>
 
 #include <sstream>
@@ -100,6 +107,45 @@ glm::vec3 sun_direction_normalized{};
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
 static void process_input(float dt);
+
+void generate_mie()
+{
+
+	//gl::GLuint mie_texture; // mie phase function
+	//{
+
+	//	EXRHeader header;
+	//	InitEXRHeader(&header);
+
+	//	EXRImage image;
+	//	InitEXRImage(&image);
+
+	//	image.num_channels = 4;
+
+	//	
+	//	const char* input = "textures/mie_phase_function.exr";
+	//	float* out = (float*)malloc(1800 * 4 * sizeof(float));
+	//	
+	//	for (auto i = 0; i < 1800; i++)
+	//	{
+	//		out[4 * i] = mie_cloud_reference[i].x;
+	//		out[4 * i + 1] = mie_cloud_reference[i].y;
+	//		out[4 * i + 2] = mie_cloud_reference[i].z;
+	//		out[4 * i + 3] = 1;
+	//		if (i <= 78)
+	//		{
+	//			out[4 * i] += chopped_peak[i];
+	//			out[4 * i + 1] += chopped_peak[i];
+	//			out[4 * i + 2] += chopped_peak[i];
+	//		}
+	//		std::cout << out[4*i] << " " << out[4*i + 1] << " " << out[4*i+2] << std::endl;
+	//	}
+
+	//	stbi_write_hdr("textures/mie_phase_function.hdr", 1800, 1, 4, out);
+	//	
+	//	free(out);
+	//}
+}
 
 int main()
 {
@@ -202,23 +248,26 @@ int main()
 
 	gl::GLuint mie_texture; // mie phase function
 	{
+		log("loading cloud erosion texture");
+
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto cloud_base_image = stbi_loadf("textures/mie_texture.hdr", &width, &height, &number_of_components, 0);
+		const auto out = stbi_loadf("textures/mie_phase_function.hdr", &width, &height, &number_of_components,
+			0);
 
 		gl::glGenTextures(1, &mie_texture);
 
 		glBindTexture(gl::GLenum::GL_TEXTURE_1D, mie_texture);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_1D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_1D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
-		const auto levels = static_cast<uint32_t>(floor(log2(1801))) + 1;
+		const auto levels = static_cast<uint32_t>(floor(log2(1800))) + 1;
 
-		gl::glTexStorage1D(gl::GLenum::GL_TEXTURE_1D, levels, gl::GLenum::GL_RGB32F, 1801);
+		gl::glTexStorage1D(gl::GLenum::GL_TEXTURE_1D, levels, gl::GLenum::GL_RGB32F, 1800);
 		glTexSubImage1D(gl::GLenum::GL_TEXTURE_1D, 0, 0, width, gl::GLenum::GL_RGB,
-			gl::GLenum::GL_FLOAT, cloud_base_image);
+			gl::GLenum::GL_FLOAT, out);
 		log_opengl_error();
-		stbi_image_free(cloud_base_image);
+		stbi_image_free(out);
 	}
 
 	// load weather map
@@ -229,7 +278,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/perlin_test_stratus.tga", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/perlin_test_stratocumulus.tga", &width, &height, &number_of_components,
 			0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -490,7 +539,7 @@ int main()
 
 		static std::array<glm::vec3, 5> arr
 		{
-			glm::vec3{ 0, 1, 0 }, normalize(glm::vec3{ 1, 0.01, 0 }),  glm::vec3{ -1, 0.01, 0 }, glm::vec3{ 0, 0.01, 1 }, glm::vec3{ 0, 0.01, -1 }
+			normalize(glm::vec3{0, 1, 0}), normalize(glm::vec3{ 1, 0.01, 0 }),  glm::vec3{ -1, 0.01, 0 }, glm::vec3{ 0, 0.01, 1 }, glm::vec3{ 0, 0.01, -1 }
 		};
 
 		// use average of 5 samples as ambient radiance
@@ -498,12 +547,14 @@ int main()
 		glm::vec3 ambient_radiance{};
 		for (auto& el : arr)
 		{
-			ambient_radiance += 683.0F * calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
+			ambient_radiance +=  calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
+			std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
+
 		}
 		ambient_radiance /= 5.0F;
-		std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
+		//std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
 
-		set_uniform(raymarching_shader, "ambient_radiance", ambient_radiance);
+		set_uniform(raymarching_shader, "ambient_luminance", ambient_radiance);
 
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
@@ -605,7 +656,13 @@ int main()
 			ImGui::SliderFloat3("wind direction", &wind_direction[0], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat3("sun direction", &sun_direction[0], -1.0F, 0.0F, "%.5f");
+			ImGui::SliderFloat("sun direction x", &sun_direction[0], -1.0F, 1.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("sun direction y", &sun_direction[1], -1.0F, 0.00001F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("sun direction z", &sun_direction[2], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
