@@ -164,13 +164,12 @@ float remap(float original_value , float original_min , float original_max , flo
 
 float get_height_relative_to_cloud_type(float relative_height, float cloud_type)
 {
-    float cumulus = 0.0;
     float stratocumulus = 0.25; 
-    float stratus = 0.0; 
+    float cumulus_and_stratus = 0.0;
 
     if (cloud_type == 1.0 || cloud_type == 0.0)
     {
-        return relative_height;
+        return relative_height - cumulus_and_stratus;
     }
 
     return clamp(relative_height - stratocumulus, 0, 1);
@@ -186,55 +185,40 @@ float get_height_coverage(float relative_height, float cloud_type)
     {
         float test = relative_height - stratocumulus;
         if (test < 0) return 0;
-        return clamp(remap(relative_height - stratocumulus, 0, 0.25, 1.5, 1), 1,1.5);
+        return clamp(remap(relative_height - stratocumulus, 0, 0.25, 1.25, 1), 1,1.25);
     }
     else 
     {
-        return clamp(remap(relative_height - cumulus_and_stratus, 0, 0.25, 1.5, 1), 1,1.5);
+        return clamp(remap(relative_height - cumulus_and_stratus, 0, 0.25, 1.25, 1), 1,1.25);
     }
 }
 
-float get_shape_mods(vec3 point, vec3 weather_data, float relative_height)
+float get_height_gradient(float relative_height, float cloud_type)
+{
+    if (cloud_type == 1.0)
+    {
+        return clamp(remap(relative_height, 0.0, 0.15, 0.0, 1.0),0, 1) * clamp(remap(relative_height, 0.5, 0.9, 1.0, 0.0), 0, 1);
+    }
+    if (cloud_type == 0.5)
+    {
+        return clamp(remap(relative_height, 0.25, 0.3, 0.0, 1.0), 0, 1) * clamp(remap(relative_height,  0.55, 0.6, 1.0, 0.0), 0, 1); 
+    }
+    else 
+    {
+        return clamp(remap(relative_height, 0.0, 0.05, 0.0, 1.0), 0, 1) * clamp(remap(relative_height, 0.2, 0.3, 1.0, 0.0), 0, 1); 
+    }
+}
+
+float get_coverage(float relative_height, vec3 weather_data)
 {
     float cloudt = weather_data.z;
     float cloud_coverage_x = weather_data.x;
     float cloud_coverage_y = weather_data.y;
 
     float cloud_coverage = mix(cloud_coverage_x, cloud_coverage_y, global_cloud_coverage);
-    float retval = clamp(cloud_coverage*get_height_coverage(relative_height, cloudt), 0, 1);
+    float retval = cloud_coverage*get_height_coverage(relative_height, cloudt);
 
-    if (cloudt == 1.0)
-    {
-        float cumulus = clamp(remap(relative_height, 0.0, 0.15, 0.0, 1.0),0, 1) * clamp(remap(relative_height, 0.5, 0.9, 1.0, 0.0), 0, 1);
-        float anvil_factor = mix(1, clamp(remap(relative_height, 0.6, 1.0, 1.0, 10.0), 1, 10.0), 1.0 - anvil_bias);
-        return retval*pow(cumulus, anvil_factor);
-    }
-    if (cloudt == 0.5)
-    {
-        float stratocumulus = clamp(remap(relative_height, 0.25, 0.3, 0.0, 1.0), 0, 1) * clamp(remap(relative_height,  0.55, 0.6, 1.0, 0.0), 0, 1); 
-        return retval * stratocumulus;
-    }
-    else 
-    {
-        float stratus = clamp(remap(relative_height, 0.0, 0.05, 0.0, 1.0), 0, 1) * clamp(remap(relative_height, 0.2, 0.3, 1.0, 0.0), 0, 1); 
-        return retval*stratus;
-    }
-}
-
-float get_density_mods(vec3 point, vec3 weather_data, float relative_height)
-{
-    float cloudt = weather_data.z;
-
-    if (cloudt == 1.0)
-    {
-        return clamp(remap(relative_height, 0.0, 0.25, 0.0, 1.0),0, 1) * clamp(remap(relative_height, 0.6, 0.9, 1.0, 0.0), 0, 1);
-         
-    }
-    if (cloudt == 0.5)
-    {
-        return clamp(remap(relative_height, 0.25, 0.4, 0.0, 1.0), 0, 1) * clamp(remap(relative_height,  0.5, 0.6, 1.0, 0.0), 0, 1); 
-    }
-    return clamp(remap(relative_height, 0.0, 0.1, 0.0, 1.0), 0, 1) * clamp(remap(relative_height, 0.2, 0.3, 1.0, 0.0), 0, 1);
+    return retval;
 }
 
 
@@ -248,14 +232,18 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                          low_frequency_noises.w * 0.125;
 
     float base_cloud = clamp(remap(low_frequency_noises.x, -(1-low_freq_FBM), 1.0, 0.0, 1.0), 0, 1);
-    float shape_mods = get_shape_mods(samplepoint, weather_data, relative_height);
-    base_cloud *= shape_mods;
+    base_cloud *= get_height_gradient(relative_height, weather_data.z);
 
-    float final_cloud = base_cloud;
+    float coverage = get_coverage(relative_height, weather_data);
+    float anvil_factor = clamp(remap(relative_height, 0.6, 1.0, 1.0, mix(1.0, 0.1, anvil_bias)), 0.1, 1.0);
+    coverage = pow(coverage, anvil_factor);
+
+    float base_cloud_with_coverage = clamp(remap(base_cloud,  1 - coverage, 1, 0, 1), 0 , 1);
+    base_cloud_with_coverage *=  coverage;
+
+    float final_cloud = base_cloud_with_coverage;
     if (low_frequency_noise_visualization == 1.0)
     {
-        float density_mods = get_density_mods(samplepoint, weather_data, relative_height);
-        final_cloud *= density_mods;
         return final_cloud;
     }
 
@@ -267,10 +255,8 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
                                 + (high_frequency_noises.y * 0.250)
                                 + (high_frequency_noises.z * 0.125);
 
-        float high_freq_noise_modifier = mix(high_freq_FBM, (1.0 - high_freq_FBM), clamp(get_height_relative_to_cloud_type(relative_height, weather_data.b)* 10.0, 0.0, 1.0));
+        float high_freq_noise_modifier = mix(high_freq_FBM,  1 - high_freq_FBM, clamp(get_height_relative_to_cloud_type(relative_height, weather_data.b)* 10.0, 0.0, 1.0));
         final_cloud = clamp(remap(final_cloud, high_freq_noise_modifier * high_freq_noise_factor, 1.0, 0.0, 1.0), 0.0, 1.0); 
-        float density_mods = get_density_mods(samplepoint, weather_data, relative_height);
-        final_cloud *= density_mods;
     }
 
     return final_cloud;
@@ -448,8 +434,8 @@ void main()
 
     vec3 colour = calculateSkyLuminanceRGB( -sun_direction, ray_world, turbidity );
 
-    if (dot(ray_world, -sun_direction) > 0.9998)
-        colour += 10*sun_radiance/683.0F;
+    float sundisk = smoothstep(sunAngularDiameterCos,sunAngularDiameterCos+0.0002,dot(ray_world, -sun_direction));
+    colour += sundisk*10*sun_radiance/683.0F;
 
     // calculate intersection with cloud layer
     vec2 res = intersect_aabb(camera_pos, ray_world, aabb_min, aabb_max);
