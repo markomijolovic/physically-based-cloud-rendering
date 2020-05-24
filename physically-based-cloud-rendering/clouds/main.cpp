@@ -3,6 +3,7 @@
 #define TINYEXR_IMPLEMENTATION
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+
 #include <stb_image_write.h>
 
 #include "tinyexr.h"
@@ -84,7 +85,7 @@ float sun_intensity = 1.0F;
 float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 0.5F;
 float anvil_bias{ 1.0F };
-float exposure_factor{ 0.025F };
+float exposure_factor{ 0.00001F };
 float turbidity{ 5.0F };
 bool multiple_scattering_approximation{ true };
 bool blue_noise{};
@@ -145,6 +146,57 @@ void generate_mie()
 	//	
 	//	free(out);
 	//}
+}
+
+void test_normalization()
+{
+	/*log("loading cloud erosion texture");
+
+	int        width;
+	int        height;
+	int        number_of_components;
+	auto out = stbi_loadf("textures/mie_phase_function_normalized.hdr", &width, &height, &number_of_components,
+		0);
+
+	float r{};
+	float g{};
+	float b{};
+
+	for (auto i = 0; i < 1800; i++)
+	{
+		r += 2*pi*out[3 * i]* 0.1F * pi/180.0F*sin((i+1)*0.1F*pi/180.0F);
+		g += 2*pi*out[3 * i + 1] * 0.1F * pi / 180.0F * sin((i + 1) * 0.1F * pi / 180.0F);
+		b += 2*pi*out[3 * i + 2] * 0.1F * pi / 180.0F * sin((i + 1) * 0.1F * pi / 180.0F);
+	}
+
+	std::cout << 4 * pi << std::endl;
+	std::cout << r << std::endl;
+	std::cout << g << std::endl;
+	std::cout << b << std::endl;
+	
+	return;
+	auto normalized = (float*)malloc(1800 * 4 * sizeof(float));
+
+	EXRHeader header;
+	InitEXRHeader(&header);
+
+	EXRImage image;
+	InitEXRImage(&image);
+
+	image.num_channels = 4;
+
+	for (auto i = 0; i < 1800; i++)
+	{
+		normalized[4 * i] = out[3 * i] / r;
+		normalized[4 * i+1] = out[3 * i+1] / g;
+		normalized[4 * i+2] = out[3 * i+2] / b;
+		normalized[4 * i+3] = 1;
+	}
+
+	stbi_write_hdr("textures/mie_phase_function_normalized.hdr", 1800, 1, 4, normalized);
+	free(normalized);
+	
+	stbi_image_free(out);*/
 }
 
 int main()
@@ -253,7 +305,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto out = stbi_loadf("textures/mie_phase_function.hdr", &width, &height, &number_of_components,
+		const auto out = stbi_loadf("textures/mie_phase_function_normalized.hdr", &width, &height, &number_of_components,
 			0);
 
 		gl::glGenTextures(1, &mie_texture);
@@ -544,15 +596,18 @@ int main()
 
 		// use average of 5 samples as ambient radiance
 		// this could really be improved (and done on the GPU as well)
-		glm::vec3 ambient_radiance{};
-		for (auto& el : arr)
-		{
-			ambient_radiance +=  calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
-			std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
+		static glm::vec3 ambient_radiance{};
 
-		}
-		ambient_radiance /= 5.0F;
-		//std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
+			for (auto& el : arr)
+			{
+				ambient_radiance += 1000.0F*calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
+				std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
+
+			}
+			ambient_radiance /= 5.0F;
+			//ambient_radiance = { 200.0F, 200.0F, 250.0F };
+
+		std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
 
 		set_uniform(raymarching_shader, "ambient_luminance", ambient_radiance);
 
@@ -668,7 +723,7 @@ int main()
 			ImGui::SliderFloat("cloud speed", &cloud_speed, 0.0F, 10.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("exposure factor", &exposure_factor, 0.001F, 1.0F, "%.5f");
+			ImGui::SliderFloat("exposure factor", &exposure_factor, 0.00001F, 0.0001F, "%.8f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("global cloud coverage", &global_cloud_coverage, 0.0F, 1.0F, "%.5f");
