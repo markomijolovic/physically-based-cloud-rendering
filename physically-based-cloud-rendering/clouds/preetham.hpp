@@ -78,7 +78,7 @@ inline glm::vec3 calculateZenithLuminanceYxy(float t, float thetaS)
 
 inline glm::vec3 calculatePerezLuminanceYxy(float theta, float gamma, glm::vec3 A, glm::vec3 B, glm::vec3 C, glm::vec3 D, glm::vec3 E)
 {
-	return (1.0F + A * exp(B / cos(theta))) * (1.0F + C * exp(D * gamma) + E * cos(gamma) * cos(gamma));
+	return (1.0F + A * exp(B / glm::max(0.00001F, cos(theta)))) * (1.0F + C * exp(D * gamma) + E * cos(gamma) * cos(gamma));
 }
 
 inline glm::vec3 calculateSkyLuminanceRGB(glm::vec3 s, glm::vec3 e, float t)

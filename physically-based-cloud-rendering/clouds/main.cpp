@@ -41,6 +41,7 @@
 #include "imgui_impl_glfw.h"
 
 #include "imgui_impl_opengl3.h"
+
 #include "preetham.hpp"
 
 constexpr auto screen_width = 1280;
@@ -330,7 +331,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/perlin_test_stratocumulus.tga", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/perlin_test_cumulus.tga", &width, &height, &number_of_components,
 			0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -589,27 +590,45 @@ int main()
 		set_uniform(raymarching_shader, "use_ambient", ambient);
 		set_uniform(raymarching_shader, "turbidity", turbidity);
 
-		static std::array<glm::vec3, 5> arr
+		static std::array<glm::vec3, 5> arr_up
 		{
 			normalize(glm::vec3{0, 1, 0}), normalize(glm::vec3{ 1, 0.01, 0 }),  glm::vec3{ -1, 0.01, 0 }, glm::vec3{ 0, 0.01, 1 }, glm::vec3{ 0, 0.01, -1 }
 		};
 
+
+		static std::array<glm::vec3, 5> arr_down
+		{
+			normalize(glm::vec3{0, -1, 0}), normalize(glm::vec3{ 1, -0.01, 0 }),  glm::vec3{ -1, -0.01, 0 }, glm::vec3{ 0, -0.01, 1 }, glm::vec3{ 0, -0.01, -1 }
+		};
+
 		// use average of 5 samples as ambient radiance
 		// this could really be improved (and done on the GPU as well)
-		static glm::vec3 ambient_radiance{};
+		static glm::vec3 ambient_radiance_up{};
 
-			for (auto& el : arr)
-			{
-				ambient_radiance += 1000.0F*calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
-				std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
+		for (auto& el : arr_up)
+		{
+			ambient_radiance_up += 1000.0F*calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
+			std::cout << ambient_radiance_up.x << " " << ambient_radiance_up.y << " " << ambient_radiance_up.z << std::endl;
 
-			}
-			ambient_radiance /= 5.0F;
-			//ambient_radiance = { 200.0F, 200.0F, 250.0F };
+		}
+		ambient_radiance_up /= 5.0F;
 
-		std::cout << ambient_radiance.x << " " << ambient_radiance.y << " " << ambient_radiance.z << std::endl;
 
-		set_uniform(raymarching_shader, "ambient_luminance", ambient_radiance);
+		std::cout << ambient_radiance_up.x << " " << ambient_radiance_up.y << " " << ambient_radiance_up.z << std::endl;
+
+		set_uniform(raymarching_shader, "ambient_luminance_up", ambient_radiance_up);
+
+		static glm::vec3 ambient_radiance_down{};
+
+		for (auto& el : arr_down)
+		{
+			ambient_radiance_down += 1000.0F * calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
+			std::cout << ambient_radiance_down.x << " " << ambient_radiance_down.y << " " << ambient_radiance_down.z << std::endl;
+
+		}
+		ambient_radiance_down /= 5.0F;
+
+		set_uniform(raymarching_shader, "ambient_luminance_down", ambient_radiance_down);
 
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
