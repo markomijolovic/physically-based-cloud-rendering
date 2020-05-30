@@ -198,12 +198,12 @@ float get_height_coverage(float relative_height, float cloud_type)
     {
         float test = relative_height - stratocumulus;
         if (test < 0) return 0;
-        return clamp(remap(relative_height - stratocumulus, 0.6, 0.65, 1.25, 1), 1,1.25);
+        return clamp(remap(relative_height - stratocumulus, 0.6, 0.65, 1.25, 1), 1.0,1.25);
     }
     else 
     {
        // return 1;
-        return clamp(remap(relative_height - cumulus_and_stratus, 0, 0.25, 1.25, 1), 1,1.25);
+        return clamp(remap(relative_height - cumulus_and_stratus, 0, 0.25, 1.25, 1), 1.0,1.25);
     }
 }
 
@@ -301,7 +301,7 @@ vec3 phase_ms(vec3 a, vec3 b, int i)
     float theta = acos(costheta);
     if (i == 0)
     {
-        return texture1D(mie_texture, theta/pi).rgb;
+        return texture(mie_texture, theta/pi).rgb;
     }
     else 
     {
