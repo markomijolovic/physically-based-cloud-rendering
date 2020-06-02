@@ -44,6 +44,7 @@ uniform vec3 ambient_luminance_up;
 uniform vec3 ambient_luminance_down;
 uniform float turbidity;
 uniform float coverage_mult;
+uniform float density_mult;
 
 const float pi = 3.141592653589793238462643383279502884197169;
 const float one_over_pi = 1.0/pi;
@@ -262,7 +263,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
     float final_cloud = base_cloud_with_coverage;
     if (low_frequency_noise_visualization == 1.0)
     {
-        return final_cloud;
+        return final_cloud * density_mult;
     }
 
     if(final_cloud > 0.0)
@@ -277,7 +278,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
         final_cloud = clamp(remap(final_cloud, high_freq_noise_modifier * high_freq_noise_factor, 1.0, 0.0, 1.0), 0.0, 1.0); 
     }
 
-    return final_cloud;
+    return final_cloud * density_mult;
 }
 
 // no intersection means vec.x > vec.y (really tNear > tFar)

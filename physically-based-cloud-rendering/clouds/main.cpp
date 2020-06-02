@@ -102,6 +102,7 @@ int primary_ray_steps{ 64 };
 int secondary_ray_steps{ 16 };
 float cumulative_time{};
 float cloud_speed{ 0.0F };
+float density_mult{ 1.0F };
 glm::vec3 wind_direction{ 1.0F, 0.0F, 0.0F };
 glm::vec3 wind_direction_normalized{};
 glm::vec3 sun_direction{ 0.0F, -1.0F, 0.0F };
@@ -597,6 +598,7 @@ int main()
 		set_uniform(raymarching_shader, "use_ambient", ambient);
 		set_uniform(raymarching_shader, "turbidity", turbidity);
 		set_uniform(raymarching_shader, "coverage_mult", coverage_mult);
+		set_uniform(raymarching_shader, "density_mult", density_mult);
 
 		static std::array<glm::vec3, 5> arr_up
 		{
@@ -741,7 +743,7 @@ int main()
 			ImGui::SliderFloat("sun direction x", &sun_direction[0], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("sun direction y", &sun_direction[1], -1.0F, 0.00001F, "%.5f");
+			ImGui::SliderFloat("sun direction y", &sun_direction[1], -1.0F, -0.001F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("sun direction z", &sun_direction[2], -1.0F, 1.0F, "%.5f");
@@ -760,6 +762,9 @@ int main()
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("coverage_mult", &coverage_mult, 0.0F, 1.0F);
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("density_mult", &density_mult, 0.0F, 2.0F);
 			ImGui::NewLine();
 
 			ImGui::Checkbox("approximate ambient light", &ambient);
