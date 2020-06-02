@@ -43,6 +43,7 @@ uniform bool use_ambient;
 uniform vec3 ambient_luminance_up;
 uniform vec3 ambient_luminance_down;
 uniform float turbidity;
+uniform float coverage_mult;
 
 const float pi = 3.141592653589793238462643383279502884197169;
 const float one_over_pi = 1.0/pi;
@@ -251,7 +252,7 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
     float base_cloud = clamp(remap(low_freq_FBM, low_frequency_noises.x, 1.0, 0.0, 1.0), 0, 1);
     base_cloud *= get_height_gradient(relative_height, weather_data.z);
 
-    float coverage = get_coverage(relative_height, weather_data);
+    float coverage = get_coverage(relative_height, weather_data) *coverage_mult;
     float anvil_factor = clamp(remap(relative_height, 0.6, 1.0, 1.0, mix(1.0, 0.1, anvil_bias)), 0.1, 1.0);
     coverage = pow(coverage, anvil_factor);
 

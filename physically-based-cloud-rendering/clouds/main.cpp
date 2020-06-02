@@ -86,6 +86,7 @@ float sun_intensity = 1.0F;
 float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 0.5F;
 float anvil_bias{ 1.0F };
+float coverage_mult{ 1.0F };
 float exposure_factor{ 0.00001F };
 float turbidity{ 5.0F };
 bool multiple_scattering_approximation{ true };
@@ -421,6 +422,10 @@ int main()
 		gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
 		gl::glCompileShader(fragment);
 
+		char log[1000];
+		gl::glGetShaderInfoLog(fragment, 1000, nullptr, log);
+		std::cout << log << std::endl;
+
 		raymarching_shader = gl::glCreateProgram();
 		gl::glAttachShader(raymarching_shader, vertex);
 		gl::glAttachShader(raymarching_shader, fragment);
@@ -493,6 +498,7 @@ int main()
 		auto vertex = glCreateShader(gl::GLenum::GL_VERTEX_SHADER);
 		gl::glShaderSource(vertex, 1, &p_vertex_data, nullptr);
 		gl::glCompileShader(vertex);
+		
 
 		auto fragment = glCreateShader(gl::GLenum::GL_FRAGMENT_SHADER);
 		gl::glShaderSource(fragment, 1, &p_fragment_data, nullptr);
@@ -502,6 +508,7 @@ int main()
 		gl::glAttachShader(tonemap_shader, vertex);
 		gl::glAttachShader(tonemap_shader, fragment);
 		gl::glLinkProgram(tonemap_shader);
+
 
 		gl::glDeleteShader(vertex);
 		gl::glDeleteShader(fragment);
@@ -589,6 +596,7 @@ int main()
 		set_uniform(raymarching_shader, "sun_direction", sun_direction_normalized);
 		set_uniform(raymarching_shader, "use_ambient", ambient);
 		set_uniform(raymarching_shader, "turbidity", turbidity);
+		set_uniform(raymarching_shader, "coverage_mult", coverage_mult);
 
 		static std::array<glm::vec3, 5> arr_up
 		{
@@ -749,6 +757,9 @@ int main()
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("turbidity", &turbidity, 2.0F, 10.0F);
+			ImGui::NewLine();
+
+			ImGui::SliderFloat("coverage_mult", &coverage_mult, 0.0F, 1.0F);
 			ImGui::NewLine();
 
 			ImGui::Checkbox("approximate ambient light", &ambient);
