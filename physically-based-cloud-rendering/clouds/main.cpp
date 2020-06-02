@@ -331,7 +331,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/perlin_test_cumulus.tga", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/perlin_test_stratus.tga", &width, &height, &number_of_components,
 			0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);

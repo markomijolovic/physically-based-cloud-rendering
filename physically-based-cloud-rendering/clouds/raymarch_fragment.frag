@@ -52,7 +52,9 @@ const vec2 weather_map_min = vec2(-30000, -30000);
 const vec2 weather_map_max = vec2(30000, 30000);
 
 //const vec3 sun_luminance = 683*vec3(69000, 64000, 59000);
-const vec3 sun_luminance = vec3(1.9e9);
+const vec3 sun_luminance_zenith = vec3(1.6e9);
+const vec3 sun_luminance_sunset = vec3(182.0/192, 116.0/192, 61.0/192)*vec3(1.6e9);
+vec3 sun_luminance = mix(sun_luminance_sunset, sun_luminance_zenith, dot(vec3(0, 1, 0),-sun_direction));
 
 float hg(float costheta, float g) 
 {
@@ -305,7 +307,7 @@ vec3 phase_ms(vec3 a, vec3 b, int i)
     }
     else 
     {
-        return vec3(0.8*hg(costheta, 0.9*pow(c, i)) +0.2*hg(costheta, -0.5*pow(c, i)));
+        return vec3(0.8*hg(costheta, 0.9*pow(c, i/2.0)) +0.2*hg(costheta, -0.5*pow(c, i/2.0)));
     }
 }
 
@@ -382,7 +384,7 @@ vec3 ray_march_to_sun_ms(vec3 start_point, vec3 end_point, vec3 prev_dir)
     for (int i = 0; i < N; i++)
     {
         vec3 ph = phase_ms(-dir, -prev_dir, i);
-        retval += pow(b, i)*pow(transmittance, pow(a,i))*(ph*0.00006807*sun_luminance);
+        retval += pow(b, i/2.0)*pow(transmittance, pow(a,i/2.0))*(ph*0.00006807*sun_luminance);
     }
 
     return retval;
