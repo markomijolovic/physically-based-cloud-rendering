@@ -77,9 +77,9 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{ 3 };
-float low_freq_noise_scale{ 7000.0F };
-float high_freq_noise_scale{ 1750.0F };
-float weather_map_scale{ 30000.0F };
+float low_freq_noise_scale{ 25000.0F };
+float high_freq_noise_scale{ 1250.0F };
+float weather_map_scale{ 60000.0F };
 float scattering_factor = 0.025F;
 float extinction_factor = 0.025F;
 float sun_intensity = 1.0F;
@@ -87,16 +87,16 @@ float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 0.5F;
 float anvil_bias{ 1.0F };
 float coverage_mult{ 1.0F };
-float exposure_factor{ 0.00001F };
+float exposure_factor{ 0.000015F };
 float turbidity{ 5.0F };
 bool multiple_scattering_approximation{ true };
 bool blue_noise{};
 bool blur{};
 bool weather_map{ true };
 bool ambient{ true };
-int N{ 8 };
+int N{ 16 };
 float a{ 0.5F };
-float b{ 0.5F };
+float b{ 0.6F };
 float c{ 0.5F };
 int primary_ray_steps{ 64 };
 int secondary_ray_steps{ 16 };
@@ -107,6 +107,8 @@ glm::vec3 wind_direction{ 1.0F, 0.0F, 0.0F };
 glm::vec3 wind_direction_normalized{};
 glm::vec3 sun_direction{ 0.0F, -1.0F, 0.0F };
 glm::vec3 sun_direction_normalized{};
+glm::vec3 aabb_max{30000.0F, 4000.0F, 30000.0F};
+glm::vec3 aabb_min{ -30000.0F, 1000.0F, -30000.0F };
 
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
@@ -151,9 +153,15 @@ void generate_mie()
 	//}
 }
 
+float hg(float costheta, float g)
+{
+	return 0.25 /pi * (1 - pow(g, 2.0)) / pow((1 + pow(g, 2.0) - 2 * g * costheta), 1.5);
+}
+
+
 void test_normalization()
 {
-	/*log("loading cloud erosion texture");
+	log("loading cloud erosion texture");
 
 	int        width;
 	int        height;
@@ -199,7 +207,7 @@ void test_normalization()
 	stbi_write_hdr("textures/mie_phase_function_normalized.hdr", 1800, 1, 4, normalized);
 	free(normalized);
 	
-	stbi_image_free(out);*/
+	stbi_image_free(out);
 }
 
 int main()
@@ -333,7 +341,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/perlin_test_stratus.tga", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/noise_cumulus.tga", &width, &height, &number_of_components,
 			0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -599,6 +607,8 @@ int main()
 		set_uniform(raymarching_shader, "turbidity", turbidity);
 		set_uniform(raymarching_shader, "coverage_mult", coverage_mult);
 		set_uniform(raymarching_shader, "density_mult", density_mult);
+		set_uniform(raymarching_shader, "aabb_max", aabb_max);
+		set_uniform(raymarching_shader, "aabb_min", aabb_min);
 
 		static std::array<glm::vec3, 5> arr_up
 		{
@@ -678,23 +688,23 @@ int main()
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
 		// render gui
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		ImGui::Begin("clouds");
-		ImGui::Text("average fps: %.2f fps", ImGui::GetIO().Framerate);
-		ImGui::Text("average frametime: %.2f ms", 1000.0F / ImGui::GetIO().Framerate);
-		ImGui::Text("time elapsed: %.2f ms", cumulative_time);
-		ImGui::Text("camera world position: x=%f, y=%f, z=%f",
-			camera.transform.position.x,
-			camera.transform.position.y,
-			camera.transform.position.z);
-		ImGui::Text("press 'o' to toggle options");
-		ImGui::End();
-
 		if (options)
 		{
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+
+			ImGui::Begin("clouds");
+			ImGui::Text("average fps: %.2f fps", ImGui::GetIO().Framerate);
+			ImGui::Text("average frametime: %.2f ms", 1000.0F / ImGui::GetIO().Framerate);
+			ImGui::Text("time elapsed: %.2f ms", cumulative_time);
+			ImGui::Text("camera world position: x=%f, y=%f, z=%f",
+				camera.transform.position.x,
+				camera.transform.position.y,
+				camera.transform.position.z);
+			ImGui::Text("press 'o' to toggle options");
+			ImGui::End();
+
 			ImGui::Begin("options");
 
 			ImGui::SliderInt("number of primary ray steps", &primary_ray_steps, 1, 500, "%d");
@@ -740,6 +750,12 @@ int main()
 			ImGui::SliderFloat3("wind direction", &wind_direction[0], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
+			ImGui::SliderFloat3("aabb max", &aabb_max[0], -30000.0F, 30000.0F, "%.5f");
+			ImGui::NewLine();
+
+			ImGui::SliderFloat3("aabb min", &aabb_min[0], -30000.0F, 30000.0F, "%.5f");
+			ImGui::NewLine();
+
 			ImGui::SliderFloat("sun direction x", &sun_direction[0], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
@@ -758,13 +774,13 @@ int main()
 			ImGui::SliderFloat("global cloud coverage", &global_cloud_coverage, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("turbidity", &turbidity, 2.0F, 10.0F);
+			ImGui::SliderFloat("turbidity", &turbidity, 2.0F, 20.0F);
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("coverage_mult", &coverage_mult, 0.0F, 1.0F);
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("density_mult", &density_mult, 0.0F, 2.0F);
+			ImGui::SliderFloat("density_mult", &density_mult, 0.0F, 5.0F);
 			ImGui::NewLine();
 
 			ImGui::Checkbox("approximate ambient light", &ambient);
@@ -773,7 +789,7 @@ int main()
 			ImGui::Checkbox("multiple scattering approximation", &multiple_scattering_approximation);
 			ImGui::NewLine();
 
-			ImGui::SliderInt("octaves count", &N, 1, 8, "%d");
+			ImGui::SliderInt("octaves count", &N, 1, 16, "%d");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("attenuation", &a, 0.01F, 1.0F, "%.2f");
@@ -786,10 +802,12 @@ int main()
 			ImGui::NewLine();
 
 			ImGui::End();
+
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		}
 
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
 
 		glfwSwapBuffers(window);
 	}
