@@ -21,9 +21,6 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="stb_image_implementation.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="log.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -57,17 +54,16 @@
     <ClCompile Include="imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="stb_image_impl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="raymarch_fragment.glsl">
-      <Filter>Source Files\shaders</Filter>
-    </None>
-    <None Include="raymarch_vertex.glsl">
-      <Filter>Source Files\shaders</Filter>
-    </None>
-    <None Include="raymarch_fragment_optimized.glsl" />
-    <None Include="blur_fragment.glsl" />
-    <None Include="tonemap_fragment.glsl" />
+    <None Include="raymarch.frag" />
+    <None Include="raymarch.vert" />
+    <None Include="tonemap.frag" />
+    <None Include="blur.frag" />
+    <None Include="imgui.ini" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="log.hpp">

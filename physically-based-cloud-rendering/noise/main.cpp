@@ -114,7 +114,7 @@ void generate_cloud_shape_textures()
 
 
 	// cloud detail texture
-	// Nnte: all channels could be combined once here to reduce memory bandwidth requirements.
+	// Note: all channels could be combined once here to reduce memory bandwidth requirements.
 	auto cloud_erosion_texture_size = 32;
 	int  cloud_erosion_row_bytes = cloud_erosion_texture_size * sizeof(unsigned char) * 4;
 	auto cloud_erosion_slice_bytes = cloud_erosion_row_bytes * cloud_erosion_texture_size;

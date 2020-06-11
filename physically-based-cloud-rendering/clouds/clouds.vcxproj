@@ -149,17 +149,17 @@
     <ClCompile Include="imgui_widgets.cpp" />
     <ClCompile Include="log.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="stb_image_implementation.cpp" />
+    <ClCompile Include="stb_image_impl.cpp" />
     <ClCompile Include="texture.cpp" />
     <ClCompile Include="transform.cpp" />
     <ClCompile Include="transforms.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="blur_fragment.glsl" />
-    <None Include="raymarch_fragment.glsl" />
-    <None Include="raymarch_fragment_optimized.glsl" />
-    <None Include="raymarch_vertex.glsl" />
-    <None Include="tonemap_fragment.glsl" />
+    <None Include="blur.frag" />
+    <None Include="imgui.ini" />
+    <None Include="raymarch.frag" />
+    <None Include="raymarch.vert" />
+    <None Include="tonemap.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aabb.hpp" />

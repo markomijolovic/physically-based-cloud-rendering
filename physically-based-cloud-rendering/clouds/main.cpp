@@ -1,13 +1,5 @@
 #define GLFW_INCLUDE_NONE
 
-#define TINYEXR_IMPLEMENTATION
-
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-
-#include <stb_image_write.h>
-
-#include "tinyexr.h"
-
 #include <fstream>
 
 #include <sstream>
@@ -92,7 +84,6 @@ float turbidity{ 5.0F };
 bool multiple_scattering_approximation{ true };
 bool blue_noise{};
 bool blur{};
-bool weather_map{ true };
 bool ambient{ true };
 int N{ 16 };
 float a{ 0.5F };
@@ -173,7 +164,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 
 		const auto levels = static_cast<uint32_t>(floor(log2(128))) + 1;
-		gl::glTexStorage3D(gl::GLenum::GL_TEXTURE_3D, levels, gl::GLenum::GL_RGBA8, 128, 128, 128);
+		glTexStorage3D(gl::GLenum::GL_TEXTURE_3D, levels, gl::GLenum::GL_RGBA8, 128, 128, 128);
 
 		glTexSubImage3D(gl::GLenum::GL_TEXTURE_3D, 0, 0, 0, 0, 128, 128, 128, gl::GLenum::GL_RGBA, gl::GLenum::GL_UNSIGNED_BYTE, cloud_base_image);
 
@@ -202,7 +193,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
 		glTexParameteri(gl::GLenum::GL_TEXTURE_3D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 
-		gl::glTexStorage3D(gl::GLenum::GL_TEXTURE_3D, levels, gl::GLenum::GL_RGBA8, 64, 64, 64);
+		glTexStorage3D(gl::GLenum::GL_TEXTURE_3D, levels, gl::GLenum::GL_RGBA8, 64, 64, 64);
 
 		glTexSubImage3D(gl::GLenum::GL_TEXTURE_3D, 0, 0, 0, 0, 64, 64, 64, gl::GLenum::GL_RGBA, gl::GLenum::GL_UNSIGNED_BYTE, cloud_erosion_image);
 
@@ -230,7 +221,7 @@ int main()
 		glTexParameteri(gl::GLenum::GL_TEXTURE_1D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
 		const auto levels = static_cast<uint32_t>(floor(log2(1800))) + 1;
 
-		gl::glTexStorage1D(gl::GLenum::GL_TEXTURE_1D, levels, gl::GLenum::GL_RGB32F, 1800);
+		glTexStorage1D(gl::GLenum::GL_TEXTURE_1D, levels, gl::GLenum::GL_RGB32F, 1800);
 		glTexSubImage1D(gl::GLenum::GL_TEXTURE_1D, 0, 0, width, gl::GLenum::GL_RGB,
 			gl::GLenum::GL_FLOAT, out);
 		log_opengl_error();
@@ -312,9 +303,9 @@ int main()
 		std::string vertex_code{};
 		std::string fragment_code{};
 
-		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+		std::ifstream vertex_file{ "raymarch.vert" };
 
-		std::ifstream fragment_file{ "raymarch_fragment.frag" };
+		std::ifstream fragment_file{ "raymarch.frag" };
 
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
@@ -355,9 +346,9 @@ int main()
 		std::string vertex_code{};
 		std::string fragment_code{};
 
-		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+		std::ifstream vertex_file{ "raymarch.vert" };
 
-		std::ifstream fragment_file{ "blur_fragment.glsl" };
+		std::ifstream fragment_file{ "blur.frag" };
 
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
@@ -393,9 +384,9 @@ int main()
 		std::string vertex_code{};
 		std::string fragment_code{};
 
-		std::ifstream vertex_file{ "raymarch_vertex.glsl" };
+		std::ifstream vertex_file{ "raymarch.vert" };
 
-		std::ifstream fragment_file{ "tonemap_fragment.glsl" };
+		std::ifstream fragment_file{ "tonemap.frag" };
 
 		std::stringstream vertex_stream{};
 		std::stringstream fragment_stream{};
@@ -480,7 +471,6 @@ int main()
 		set_uniform(raymarching_shader, "projection", camera.projection);
 		set_uniform(raymarching_shader, "view", camera.transform.get_view_matrix());
 		set_uniform(raymarching_shader, "camera_pos", glm::vec3{ camera.transform.position });
-		set_uniform(raymarching_shader, "weather_map_visualization", weather_map);
 		set_uniform(raymarching_shader, "low_frequency_noise_visualization",
 			static_cast<int>(radio_button_value == 2));
 		set_uniform(raymarching_shader, "high_frequency_noise_visualization",
@@ -527,32 +517,32 @@ int main()
 
 		// use average of 5 samples as ambient radiance
 		// this could really be improved (and done on the GPU as well)
-		static glm::vec3 ambient_radiance_up{};
+		static glm::vec3 ambient_luminance_up{};
 
 		for (auto& el : arr_up)
 		{
-			ambient_radiance_up += 1000.0F*calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
-			std::cout << ambient_radiance_up.x << " " << ambient_radiance_up.y << " " << ambient_radiance_up.z << std::endl;
+			ambient_luminance_up += 1000.0F*calculate_sky_luminance_RGB(-sun_direction_normalized, el, turbidity);
+			std::cout << ambient_luminance_up.x << " " << ambient_luminance_up.y << " " << ambient_luminance_up.z << std::endl;
 
 		}
-		ambient_radiance_up /= 5.0F;
+		ambient_luminance_up /= 5.0F;
 
 
-		std::cout << ambient_radiance_up.x << " " << ambient_radiance_up.y << " " << ambient_radiance_up.z << std::endl;
+		std::cout << ambient_luminance_up.x << " " << ambient_luminance_up.y << " " << ambient_luminance_up.z << std::endl;
 
-		set_uniform(raymarching_shader, "ambient_luminance_up", ambient_radiance_up);
+		set_uniform(raymarching_shader, "ambient_luminance_up", ambient_luminance_up);
 
-		static glm::vec3 ambient_radiance_down{};
+		static glm::vec3 ambient_luminance_down{};
 
 		for (auto& el : arr_down)
 		{
-			ambient_radiance_down += 1000.0F * calculateSkyLuminanceRGB(-sun_direction_normalized, el, turbidity);
-			std::cout << ambient_radiance_down.x << " " << ambient_radiance_down.y << " " << ambient_radiance_down.z << std::endl;
+			ambient_luminance_down += 1000.0F * calculate_sky_luminance_RGB(-sun_direction_normalized, el, turbidity);
+			std::cout << ambient_luminance_down.x << " " << ambient_luminance_down.y << " " << ambient_luminance_down.z << std::endl;
 
 		}
-		ambient_radiance_down /= 5.0F;
+		ambient_luminance_down /= 5.0F;
 
-		set_uniform(raymarching_shader, "ambient_luminance_down", ambient_radiance_down);
+		set_uniform(raymarching_shader, "ambient_luminance_down", ambient_luminance_down);
 
 		glDrawElements(gl::GLenum::GL_TRIANGLES, 6, gl::GLenum::GL_UNSIGNED_INT, nullptr);
 
@@ -619,9 +609,6 @@ int main()
 
 			ImGui::RadioButton("low frequency noise", &radio_button_value, 2);
 			ImGui::RadioButton("high frequency noise", &radio_button_value, 3);
-			ImGui::NewLine();
-
-			ImGui::Checkbox("use coverage from weather map", &weather_map);
 			ImGui::NewLine();
 
 			ImGui::Checkbox("blue noise jitter", &blue_noise);

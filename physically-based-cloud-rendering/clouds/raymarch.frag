@@ -15,7 +15,6 @@ uniform mat4 view;
 uniform mat4 projection;
 uniform vec3 camera_pos;
 
-uniform int weather_map_visualization;
 uniform int low_frequency_noise_visualization;
 uniform int high_frequency_noise_visualization;
 uniform float weather_map_scale;
@@ -67,7 +66,7 @@ float hg(float costheta, float g)
 
 const float sun_angular_diameter_cos = 0.999956676946448443553574619906976478926848692873900859324F;
 
-vec3 YxyToXYZ( in vec3 Yxy )
+vec3 Yxy_to_XYZ( in vec3 Yxy )
 {
 	float Y = Yxy.r;
 	float x = Yxy.g;
@@ -79,7 +78,7 @@ vec3 YxyToXYZ( in vec3 Yxy )
 	return vec3(X,Y,Z);
 }
 
-vec3 XYZToRGB( in vec3 XYZ )
+vec3 XYZ_to_RGB( in vec3 XYZ )
 {
 	// CIE/E
 	mat3 M = mat3
@@ -93,19 +92,19 @@ vec3 XYZToRGB( in vec3 XYZ )
 }
 
 
-float saturatedDot( in vec3 a, in vec3 b )
+float saturated_dot( in vec3 a, in vec3 b )
 {
 	return max( dot( a, b ), 0.0 );   
 }
 
-vec3 YxyToRGB( in vec3 Yxy )
+vec3 Yxy_to_RGB( in vec3 Yxy )
 {
-	vec3 XYZ = YxyToXYZ( Yxy );
-	vec3 RGB = XYZToRGB( XYZ );
+	vec3 XYZ = Yxy_to_XYZ( Yxy );
+	vec3 RGB = XYZ_to_RGB( XYZ );
 	return RGB;
 }
 
-void calculatePerezDistribution( in float t, out vec3 A, out vec3 B, out vec3 C, out vec3 D, out vec3 E )
+void calculate_perez_distribution( in float t, out vec3 A, out vec3 B, out vec3 C, out vec3 D, out vec3 E )
 {
 	A = vec3(  0.1787 * t - 1.4630, -0.0193 * t - 0.2592, -0.0167 * t - 0.2608 );
 	B = vec3( -0.3554 * t + 0.4275, -0.0665 * t + 0.0008, -0.0950 * t + 0.0092 );
@@ -114,7 +113,7 @@ void calculatePerezDistribution( in float t, out vec3 A, out vec3 B, out vec3 C,
 	E = vec3( -0.0670 * t + 0.3703, -0.0033 * t + 0.0452, -0.0109 * t + 0.0529 );
 }
 
-vec3 calculateZenithLuminanceYxy( in float t, in float thetaS )
+vec3 calculate_zenith_luminance_Yxy( in float t, in float thetaS )
 {
 	float chi  	 	= ( 4.0 / 9.0 - t / 120.0 ) * ( pi - 2.0 * thetaS );
 	float Yz   	 	= ( 4.0453 * t - 4.9710 ) * tan( chi ) - 0.2155 * t + 2.4192;
@@ -137,31 +136,31 @@ vec3 calculateZenithLuminanceYxy( in float t, in float thetaS )
 	return vec3( Yz, xz, yz );
 }
 
-vec3 calculatePerezLuminanceYxy( in float theta, in float gamma, in vec3 A, in vec3 B, in vec3 C, in vec3 D, in vec3 E )
+vec3 calculate_perez_luminance_Yxy( in float theta, in float gamma, in vec3 A, in vec3 B, in vec3 C, in vec3 D, in vec3 E )
 {
 	return ( 1.0 + A * exp( B / cos( theta ) ) ) * ( 1.0 + C * exp( D * gamma ) + E * cos( gamma ) * cos( gamma ) );
 }
 
-vec3 calculateSkyLuminanceRGB( in vec3 s, in vec3 e, in float t )
+vec3 calculate_sky_luminance_RGB( in vec3 s, in vec3 e, in float t )
 {
 	vec3 A, B, C, D, E;
-	calculatePerezDistribution( t, A, B, C, D, E );
+	calculate_perez_distribution( t, A, B, C, D, E );
 
-	float thetaS = acos( saturatedDot( s, vec3(0,1,0) ) );
-	float thetaE = acos( saturatedDot( e, vec3(0,1,0) ) );
-	float gammaE = acos( saturatedDot( s, e )		   );
+	float thetaS = acos( saturated_dot( s, vec3(0,1,0) ) );
+	float thetaE = acos( saturated_dot( e, vec3(0,1,0) ) );
+	float gammaE = acos( saturated_dot( s, e )		   );
 
-	vec3 Yz = calculateZenithLuminanceYxy( t, thetaS );
+	vec3 Yz = calculate_zenith_luminance_Yxy( t, thetaS );
 
-	vec3 fThetaGamma = calculatePerezLuminanceYxy( thetaE, gammaE, A, B, C, D, E );
-	vec3 fZeroThetaS = calculatePerezLuminanceYxy( 0.0,    thetaS, A, B, C, D, E );
+	vec3 fThetaGamma = calculate_perez_luminance_Yxy( thetaE, gammaE, A, B, C, D, E );
+	vec3 fZeroThetaS = calculate_perez_luminance_Yxy( 0.0,    thetaS, A, B, C, D, E );
 
 	vec3 Yp = Yz * ( fThetaGamma / fZeroThetaS );
 
-	return YxyToRGB( Yp );
+	return Yxy_to_RGB( Yp );
 }
 
-//vec3 ambient = (calculateSkyLuminanceRGB(-sun_direction, vec3(0, 1, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(-1, 0, 0), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, 1), turbidity) + calculateSkyLuminanceRGB(-sun_direction, vec3(0, 0, -1), turbidity))/5;
+//vec3 ambient = (calculate_sky_luminance_RGB(-sun_direction, vec3(0, 1, 0), turbidity) + calculate_sky_luminance_RGB(-sun_direction, vec3(1, 0, 0), turbidity) + calculate_sky_luminance_RGB(-sun_direction, vec3(-1, 0, 0), turbidity) + calculate_sky_luminance_RGB(-sun_direction, vec3(0, 0, 1), turbidity) + calculate_sky_luminance_RGB(-sun_direction, vec3(0, 0, -1), turbidity))/5;
 
 float remap(float original_value , float original_min , float original_max , float new_min , float new_max) 
 {
@@ -287,10 +286,10 @@ float sample_cloud_density(vec3 samplepoint, vec3 weather_data, float relative_h
 }
 
 // no intersection means vec.x > vec.y (really tNear > tFar)
-vec2 intersect_aabb(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax)
+vec2 intersect_aabb(vec3 ray_origin, vec3 ray_dir, vec3 box_min, vec3 box_max)
 {
-    vec3 tMin = (boxMin - rayOrigin) / rayDir;
-    vec3 tMax = (boxMax - rayOrigin) / rayDir;
+    vec3 tMin = (box_min - ray_origin) / ray_dir;
+    vec3 tMax = (box_max - ray_origin) / ray_dir;
     vec3 t1 = min(tMin, tMax);
     vec3 t2 = max(tMin, tMax);
     float tNear = max(max(t1.x, t1.y), t1.z);
@@ -482,7 +481,7 @@ void main()
     ray_eye = vec4(ray_eye.xy, z, 0.0);
     vec3 ray_world = normalize((inverse(view)*ray_eye).xyz);
 
-    vec3 colour = 1000*calculateSkyLuminanceRGB( -sun_direction, ray_world, turbidity );
+    vec3 colour = 1000*calculate_sky_luminance_RGB( -sun_direction, ray_world, turbidity );
 
     float sundisk = smoothstep(sun_angular_diameter_cos,sun_angular_diameter_cos+0.0002,dot(ray_world, -sun_direction));
     colour += sundisk*sun_luminance/1000;

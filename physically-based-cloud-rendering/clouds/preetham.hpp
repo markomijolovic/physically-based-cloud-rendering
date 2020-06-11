@@ -6,7 +6,7 @@
 
 #include "transforms.hpp"
 
-inline glm::vec3 YxyToXYZ(glm::vec3 Yxy)
+inline glm::vec3 Yxy_to_XYZ(glm::vec3 Yxy)
 {
 	float Y = Yxy.r;
 	float x = Yxy.g;
@@ -18,7 +18,7 @@ inline glm::vec3 YxyToXYZ(glm::vec3 Yxy)
 	return glm::vec3(X, Y, Z);
 }
 
-inline glm::vec3 XYZToRGB(glm::vec3 XYZ)
+inline glm::vec3 XYZ_to_RGB(glm::vec3 XYZ)
 {
 	// CIE/E
 	glm::mat3 M = glm::mat3
@@ -32,19 +32,19 @@ inline glm::vec3 XYZToRGB(glm::vec3 XYZ)
 }
 
 
-inline float saturatedDot(glm::vec3 a, glm::vec3 b)
+inline float saturated_dot(glm::vec3 a, glm::vec3 b)
 {
 	return glm::max(dot(a, b), 0.0F);
 }
 
-inline glm::vec3 YxyToRGB(glm::vec3 Yxy)
+inline glm::vec3 Yxy_to_RGB(glm::vec3 Yxy)
 {
-	glm::vec3 XYZ = YxyToXYZ(Yxy);
-	glm::vec3 RGB = XYZToRGB(XYZ);
+	glm::vec3 XYZ = Yxy_to_XYZ(Yxy);
+	glm::vec3 RGB = XYZ_to_RGB(XYZ);
 	return RGB;
 }
 
-inline void calculatePerezDistribution(float t, glm::vec3& A, glm::vec3& B, glm::vec3& C, glm::vec3& D, glm::vec3& E)
+inline void calculate_perez_distribution(float t, glm::vec3& A, glm::vec3& B, glm::vec3& C, glm::vec3& D, glm::vec3& E)
 {
 	A = glm::vec3(0.1787 * t - 1.4630, -0.0193 * t - 0.2592, -0.0167 * t - 0.2608);
 	B = glm::vec3(-0.3554 * t + 0.4275, -0.0665 * t + 0.0008, -0.0950 * t + 0.0092);
@@ -53,7 +53,7 @@ inline void calculatePerezDistribution(float t, glm::vec3& A, glm::vec3& B, glm:
 	E = glm::vec3(-0.0670 * t + 0.3703, -0.0033 * t + 0.0452, -0.0109 * t + 0.0529);
 }
 
-inline glm::vec3 calculateZenithLuminanceYxy(float t, float thetaS)
+inline glm::vec3 calculate_zenith_luminance_Yxy(float t, float thetaS)
 {
 	float chi = (4.0 / 9.0 - t / 120.0) * (pi - 2.0 * thetaS);
 	float Yz = (4.0453 * t - 4.9710) * tan(chi) - 0.2155 * t + 2.4192;
@@ -76,26 +76,26 @@ inline glm::vec3 calculateZenithLuminanceYxy(float t, float thetaS)
 	return glm::vec3(Yz, xz, yz);
 }
 
-inline glm::vec3 calculatePerezLuminanceYxy(float theta, float gamma, glm::vec3 A, glm::vec3 B, glm::vec3 C, glm::vec3 D, glm::vec3 E)
+inline glm::vec3 calculate_perez_luminance_Yxy(float theta, float gamma, glm::vec3 A, glm::vec3 B, glm::vec3 C, glm::vec3 D, glm::vec3 E)
 {
 	return (1.0F + A * exp(B / glm::max(0.00001F, cos(theta)))) * (1.0F + C * exp(D * gamma) + E * cos(gamma) * cos(gamma));
 }
 
-inline glm::vec3 calculateSkyLuminanceRGB(glm::vec3 s, glm::vec3 e, float t)
+inline glm::vec3 calculate_sky_luminance_RGB(glm::vec3 s, glm::vec3 e, float t)
 {
 	glm::vec3 A, B, C, D, E;
-	calculatePerezDistribution(t, A, B, C, D, E);
+	calculate_perez_distribution(t, A, B, C, D, E);
 
-	float thetaS = acos(saturatedDot(s, glm::vec3(0, 1, 0)));
-	float thetaE = acos(saturatedDot(e, glm::vec3(0, 1, 0)));
-	float gammaE = acos(saturatedDot(s, e));
+	float thetaS = acos(saturated_dot(s, glm::vec3(0, 1, 0)));
+	float thetaE = acos(saturated_dot(e, glm::vec3(0, 1, 0)));
+	float gammaE = acos(saturated_dot(s, e));
 
-	glm::vec3 Yz = calculateZenithLuminanceYxy(t, thetaS);
+	glm::vec3 Yz = calculate_zenith_luminance_Yxy(t, thetaS);
 
-	glm::vec3 fThetaGamma = calculatePerezLuminanceYxy(thetaE, gammaE, A, B, C, D, E);
-	glm::vec3 fZeroThetaS = calculatePerezLuminanceYxy(0.0, thetaS, A, B, C, D, E);
+	glm::vec3 fThetaGamma = calculate_perez_luminance_Yxy(thetaE, gammaE, A, B, C, D, E);
+	glm::vec3 fZeroThetaS = calculate_perez_luminance_Yxy(0.0, thetaS, A, B, C, D, E);
 
 	glm::vec3 Yp = Yz * (fThetaGamma / fZeroThetaS);
 
-	return YxyToRGB(Yp);
+	return Yxy_to_RGB(Yp);
 }

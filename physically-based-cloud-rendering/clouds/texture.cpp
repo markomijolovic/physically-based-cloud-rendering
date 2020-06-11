@@ -20,12 +20,12 @@ texture_t::texture_t(uint32_t width, uint32_t height, gl::GLenum sized_internal_
 	bind();
 
 
-	gl::glTexStorage2D(gl::GLenum::GL_TEXTURE_2D, 1, sized_internal_format, width, height);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, filtering_min);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, filtering_mag);
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, wrap_s);
+	glTexStorage2D(gl::GLenum::GL_TEXTURE_2D, 1, sized_internal_format, width, height);
+	glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, filtering_min);
+	glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, filtering_mag);
+	glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, wrap_s);
 
-	gl::glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, wrap_t);
+	glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, wrap_t);
 
 	unbind();
 }
@@ -37,14 +37,14 @@ texture_t::~texture_t()
 
 void texture_t::unbind()
 {
-	gl::glBindTexture(gl::GLenum::GL_TEXTURE_2D, 0);
+	glBindTexture(gl::GLenum::GL_TEXTURE_2D, 0);
 }
 
 void texture_t::bind(int32_t unit) const
 {
 	if (unit >= 0)
 	{
-		gl::glActiveTexture(gl::GLenum::GL_TEXTURE0 + unit);
+		glActiveTexture(gl::GLenum::GL_TEXTURE0 + unit);
 	}
-	gl::glBindTexture(gl::GLenum::GL_TEXTURE_2D, id);
+	glBindTexture(gl::GLenum::GL_TEXTURE_2D, id);
 }
