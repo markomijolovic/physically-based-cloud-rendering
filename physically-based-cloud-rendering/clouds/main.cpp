@@ -69,6 +69,7 @@ float x_offset{};
 float y_offset{};
 bool  options{};
 int   radio_button_value{ 3 };
+int   cfg_value{ 0 };
 float low_freq_noise_scale{ 25000.0F };
 float high_freq_noise_scale{ 1250.0F };
 float weather_map_scale{ 60000.0F };
@@ -77,7 +78,7 @@ float extinction_factor = 0.025F;
 float sun_intensity = 1.0F;
 float global_cloud_coverage = 1.0F;
 float high_freq_noise_factor = 0.5F;
-float anvil_bias{ 1.0F };
+float anvil_bias{ 0.0F };
 float coverage_mult{ 1.0F };
 float exposure_factor{ 0.000015F };
 float turbidity{ 5.0F };
@@ -104,6 +105,36 @@ glm::vec3 aabb_min{ -30000.0F, 1000.0F, -30000.0F };
 static void mouse_callback(GLFWwindow* /*window*/, double x_pos, double y_pos);
 static void key_callback(GLFWwindow* window, int key, int /*scan_code*/, int action, int /*mode*/);
 static void process_input(float dt);
+
+struct configuration_t
+{
+	std::string weather_map{};
+	float base_scale{};
+	float detail_scale{};
+	float weather_scale{};
+	float detail_factor{};
+	glm::vec3 min{};
+	glm::vec3 max{};
+	float a{};
+	float b{};
+	float extinction{};
+	float scattering{};
+	float global_coverage{};
+};
+
+std::array<configuration_t, 5> cfgs
+{
+    {
+		{"perlin_test_cumulus",60000,1500, 60000, 0.5F,{-30000, 1000, -30000},{30000, 4000, 30000},0.55,0.7,0.06, 0.06, 0.0F},
+		{"perlin_test_stratocumulus", 40000,2000, 60000, 0.5F,{-30000, 1000, -30000},{30000, 4000, 30000},0.6,0.75, 0.033, 0.033, 0.0F},
+		{"perlin_test_stratus", 60000,3000,60000, 0.33F,{-30000, 1000, -30000},{30000, 4000, 30000},0.6,0.75, 0.02,0.02, 1.0F},
+		{"custom_cumulus", 15000,1500,60000, 0.5F,{-6000, 1000, -6000},{6000, 4000, 6000},0.6,0.75, 0.06,0.06, 1.0F},
+	}
+};
+
+std::unordered_map<std::string, uint32_t> weather_maps
+{
+};
 
 int main()
 {
@@ -236,7 +267,7 @@ int main()
 		int        width;
 		int        height;
 		int        number_of_components;
-		const auto weather_map_data = stbi_load("textures/noise_cumulus.tga", &width, &height, &number_of_components,
+		const auto weather_map_data = stbi_load("textures/perlin_test_stratus.tga", &width, &height, &number_of_components,
 			0);
 		gl::glGenTextures(1, &weather_map_texture);
 		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
@@ -250,6 +281,76 @@ int main()
 			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
 		log_opengl_error();
 		stbi_image_free(weather_map_data);
+		weather_maps["perlin_test_stratus"] = weather_map_texture;
+	}
+
+	{
+		log("loading weather map texture");
+
+		int        width;
+		int        height;
+		int        number_of_components;
+		const auto weather_map_data = stbi_load("textures/perlin_test_stratocumulus.tga", &width, &height, &number_of_components,
+			0);
+		gl::glGenTextures(1, &weather_map_texture);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
+
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+
+		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
+			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+		log_opengl_error();
+		stbi_image_free(weather_map_data);
+		weather_maps["perlin_test_stratocumulus"] = weather_map_texture;
+	}
+
+	{
+		log("loading weather map texture");
+
+		int        width;
+		int        height;
+		int        number_of_components;
+		const auto weather_map_data = stbi_load("textures/perlin_test_cumulus.tga", &width, &height, &number_of_components,
+			0);
+		gl::glGenTextures(1, &weather_map_texture);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
+
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+
+		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
+			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+		log_opengl_error();
+		stbi_image_free(weather_map_data);
+		weather_maps["perlin_test_cumulus"] = weather_map_texture;
+	}
+
+	{
+		log("loading weather map texture");
+
+		int        width;
+		int        height;
+		int        number_of_components;
+		const auto weather_map_data = stbi_load("textures/custom_cumulus.tga", &width, &height, &number_of_components,
+			0);
+		gl::glGenTextures(1, &weather_map_texture);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MIN_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_MAG_FILTER, gl::GLenum::GL_LINEAR);
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_S, gl::GLenum::GL_REPEAT);
+
+		glTexParameteri(gl::GLenum::GL_TEXTURE_2D, gl::GLenum::GL_TEXTURE_WRAP_T, gl::GLenum::GL_REPEAT);
+
+		glTexImage2D(gl::GLenum::GL_TEXTURE_2D, 0, gl::GLenum::GL_RGBA8, width, height, 0, gl::GLenum::GL_RGBA,
+			gl::GLenum::GL_UNSIGNED_BYTE, weather_map_data);
+		log_opengl_error();
+		stbi_image_free(weather_map_data);
+		weather_maps["custom_cumulus"] = weather_map_texture;
 	}
 
 	// load blue noise texture
@@ -444,6 +545,8 @@ int main()
 		std::cout << "Delta time: " << delta_time << std::endl;
 
 		// raymarching
+
+		auto &cfg = cfgs[cfg_value];
 		framebuffer2.bind();
 		glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
 		gl::glUseProgram(raymarching_shader);
@@ -452,8 +555,8 @@ int main()
 		glActiveTexture(gl::GLenum::GL_TEXTURE2);
 		glBindTexture(gl::GLenum::GL_TEXTURE_3D, cloud_erosion_texture);
 		glActiveTexture(gl::GLenum::GL_TEXTURE3);
-		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
-
+		//glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_map_texture);
+		glBindTexture(gl::GLenum::GL_TEXTURE_2D, weather_maps[cfg.weather_map]);
 		set_uniform(raymarching_shader, "cloud_base", 1);
 		set_uniform(raymarching_shader, "cloud_erosion", 2);
 		set_uniform(raymarching_shader, "weather_map", 3);
@@ -476,22 +579,22 @@ int main()
 		set_uniform(raymarching_shader, "high_frequency_noise_visualization",
 			static_cast<int>(radio_button_value == 3));
 		set_uniform(raymarching_shader, "multiple_scattering_approximation", multiple_scattering_approximation);
-		set_uniform(raymarching_shader, "low_freq_noise_scale", low_freq_noise_scale);
-		set_uniform(raymarching_shader, "weather_map_scale", weather_map_scale);
-		set_uniform(raymarching_shader, "high_freq_noise_scale", high_freq_noise_scale);
-		set_uniform(raymarching_shader, "scattering_factor", scattering_factor);
-		set_uniform(raymarching_shader, "extinction_factor", extinction_factor);
+		set_uniform(raymarching_shader, "low_freq_noise_scale", cfg.base_scale);
+		set_uniform(raymarching_shader, "weather_map_scale", cfg.weather_scale);
+		set_uniform(raymarching_shader, "high_freq_noise_scale", cfg.detail_scale);
+		set_uniform(raymarching_shader, "scattering_factor", cfg.scattering);
+		set_uniform(raymarching_shader, "extinction_factor", cfg.extinction);
 		set_uniform(raymarching_shader, "sun_intensity", sun_intensity);
-		set_uniform(raymarching_shader, "high_freq_noise_factor", high_freq_noise_factor);
+		set_uniform(raymarching_shader, "high_freq_noise_factor", cfg.detail_factor);
 		set_uniform(raymarching_shader, "N", N);
-		set_uniform(raymarching_shader, "a", a);
-		set_uniform(raymarching_shader, "b", b);
+		set_uniform(raymarching_shader, "a", cfg.a);
+		set_uniform(raymarching_shader, "b", cfg.b);
 		set_uniform(raymarching_shader, "c", c);
 		set_uniform(raymarching_shader, "primary_ray_steps", primary_ray_steps);
 		set_uniform(raymarching_shader, "secondary_ray_steps", secondary_ray_steps);
 		set_uniform(raymarching_shader, "time", cumulative_time);
 		set_uniform(raymarching_shader, "cloud_speed", cloud_speed);
-		set_uniform(raymarching_shader, "global_cloud_coverage", global_cloud_coverage);
+		set_uniform(raymarching_shader, "global_cloud_coverage", cfg.global_coverage);
 		set_uniform(raymarching_shader, "anvil_bias", anvil_bias);
 		wind_direction_normalized = normalize(wind_direction);
 		set_uniform(raymarching_shader, "wind_direction", wind_direction_normalized);
@@ -501,8 +604,8 @@ int main()
 		set_uniform(raymarching_shader, "turbidity", turbidity);
 		set_uniform(raymarching_shader, "coverage_mult", coverage_mult);
 		set_uniform(raymarching_shader, "density_mult", density_mult);
-		set_uniform(raymarching_shader, "aabb_max", aabb_max);
-		set_uniform(raymarching_shader, "aabb_min", aabb_min);
+		set_uniform(raymarching_shader, "aabb_max", cfg.max);
+		set_uniform(raymarching_shader, "aabb_min", cfg.min);
 
 		static std::array<glm::vec3, 5> arr_up
 		{
@@ -611,40 +714,47 @@ int main()
 			ImGui::RadioButton("high frequency noise", &radio_button_value, 3);
 			ImGui::NewLine();
 
+			ImGui::RadioButton("cumulus map", &cfg_value, 0);
+			ImGui::RadioButton("stratocumulus map", &cfg_value, 1);
+			ImGui::RadioButton("stratus map", &cfg_value, 2);
+			ImGui::RadioButton("one cumulus map", &cfg_value, 3);
+
+			ImGui::NewLine();
+
 			ImGui::Checkbox("blue noise jitter", &blue_noise);
 			ImGui::NewLine();
 
 			ImGui::Checkbox("gaussian blur", &blur);
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("low frequency noise scale", &low_freq_noise_scale, 10.0F, 200000.0F, "%.5f");
+			ImGui::SliderFloat("low frequency noise scale", &cfg.base_scale, 10.0F, 200000.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("high frequency noise scale", &high_freq_noise_scale, 10.0F, 10000.0F, "%.5f");
+			ImGui::SliderFloat("high frequency noise scale", &cfg.detail_scale, 10.0F, 10000.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("weather map scale", &weather_map_scale, 3000.0F, 300000.0F, "%.5f");
+			ImGui::SliderFloat("weather map scale", &cfg.weather_scale, 3000.0F, 300000.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("high frequency noise factor", &high_freq_noise_factor, 0.0F, 1.0F, "%.5f");
+			ImGui::SliderFloat("high frequency noise factor", &cfg.detail_factor, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("anvil bias", &anvil_bias, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("scattering factor", &scattering_factor, 0.01F, 1.0F, "%.5f");
+			ImGui::SliderFloat("scattering factor", &cfg.scattering, 0.01F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("extinction factor", &extinction_factor, 0.01F, 1.0F, "%.5f");
+			ImGui::SliderFloat("extinction factor", &cfg.extinction, 0.01F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat3("wind direction", &wind_direction[0], -1.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat3("aabb max", &aabb_max[0], -30000.0F, 30000.0F, "%.5f");
+			ImGui::SliderFloat3("aabb max", &cfg.max[0], -30000.0F, 30000.0F, "%.5f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat3("aabb min", &aabb_min[0], -30000.0F, 30000.0F, "%.5f");
+			ImGui::SliderFloat3("aabb min", &cfg.min[0], -30000.0F, 30000.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("sun direction x", &sun_direction[0], -1.0F, 1.0F, "%.5f");
@@ -662,7 +772,7 @@ int main()
 			ImGui::SliderFloat("exposure factor", &exposure_factor, 0.00001F, 0.0001F, "%.8f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("global cloud coverage", &global_cloud_coverage, 0.0F, 1.0F, "%.5f");
+			ImGui::SliderFloat("global cloud coverage", &cfg.global_coverage, 0.0F, 1.0F, "%.5f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("turbidity", &turbidity, 2.0F, 20.0F);
@@ -683,10 +793,10 @@ int main()
 			ImGui::SliderInt("octaves count", &N, 1, 16, "%d");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("attenuation", &a, 0.01F, 1.0F, "%.2f");
+			ImGui::SliderFloat("attenuation", &cfg.a, 0.01F, 1.0F, "%.2f");
 			ImGui::NewLine();
 
-			ImGui::SliderFloat("contribution", &b, 0.01F, 1.0F, "%.2f");
+			ImGui::SliderFloat("contribution", &cfg.b, 0.01F, 1.0F, "%.2f");
 			ImGui::NewLine();
 
 			ImGui::SliderFloat("eccentricity attenuation", &c, 0.01F, 1.0F, "%.2f");
