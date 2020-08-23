@@ -183,7 +183,6 @@
     <ClInclude Include="texture.hpp" />
     <ClInclude Include="transform.hpp" />
     <ClInclude Include="transforms.hpp" />
-    <ClInclude Include="uniforms.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

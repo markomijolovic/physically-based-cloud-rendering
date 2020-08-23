@@ -91,9 +91,6 @@
     <ClInclude Include="transforms.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="uniforms.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="aabb.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>

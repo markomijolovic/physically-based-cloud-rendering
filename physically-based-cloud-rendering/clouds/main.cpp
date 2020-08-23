@@ -16,7 +16,6 @@
 #include "shader.hpp"
 #include "stb_image.h"
 #include "transforms.hpp"
-#include "uniforms.hpp"
 #include "glbinding/glbinding.h"
 #include "glbinding/gl/gl.h"
 #include "GLFW/glfw3.h"
