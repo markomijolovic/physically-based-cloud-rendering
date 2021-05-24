@@ -8,6 +8,6 @@ Keywords: physically based shading, volume rendering, physics of light, noise fu
 
 ## Examples
 ![stratocumulus](/paper-images/readme/stratocumulus_cropped.png)
-![cumulus](/paper-images/readme/c_mutiple_ambient_cropped.png)
+![cumulus](/paper-images/readme/c_multiple_ambient_cropped.png)
 ![sunset](/paper-images/readme/sunset_cropped.png)
 
