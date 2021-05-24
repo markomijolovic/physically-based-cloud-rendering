@@ -1,22 +1,24 @@
 #include "mesh.hpp"
 
-#include <utility>
 #include <glbinding/gl/enum.h>
 #include <glbinding/gl/functions.h>
+#include <utility>
 
-
-mesh_t::mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> uvs, std::vector<std::uint32_t> indices) :
-    positions_{std::move(positions)},
-    uvs_{std::move(uvs)},
-    indices_{std::move(indices)}
+mesh_t::mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> uvs, std::vector<std::uint32_t> indices)
+    : positions_{std::move(positions)}
+    , uvs_{std::move(uvs)}
+    , indices_{std::move(indices)}
 {
     gl::glGenVertexArrays(1, &vao_);
     gl::glGenBuffers(1, &vbo_);
     gl::glGenBuffers(1, &ebo_);
 
+    assert(vao_);
+    assert(vbo_);
+    assert(ebo_);
+
     std::vector<float> data{};
-    for (size_t i = 0; i < positions_.size(); i++)
-    {
+    for (size_t i = 0; i < positions_.size(); i++) {
         data.push_back(positions_[i].x);
         data.push_back(positions_[i].y);
         data.push_back(positions_[i].z);
@@ -43,7 +45,7 @@ mesh_t::mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> uvs, std
                           gl::GLenum::GL_FLOAT,
                           0U,
                           static_cast<gl::GLsizei>(stride),
-                          reinterpret_cast<gl::GLvoid*>(offset));
+                          reinterpret_cast<gl::GLvoid *>(offset));
     gl::glEnableVertexAttribArray(0);
     offset += 3 * sizeof(float);
 
@@ -52,7 +54,7 @@ mesh_t::mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> uvs, std
                           gl::GLenum::GL_FLOAT,
                           false,
                           static_cast<gl::GLsizei>(stride),
-                          reinterpret_cast<gl::GLvoid*>(offset));
+                          reinterpret_cast<gl::GLvoid *>(offset));
     gl::glEnableVertexAttribArray(1);
 
     gl::glBindVertexArray(0);
@@ -60,6 +62,8 @@ mesh_t::mesh_t(std::vector<glm::vec3> positions, std::vector<glm::vec2> uvs, std
 
 auto mesh_t::draw() const -> void
 {
+    assert(vao_);
+
     gl::glBindVertexArray(vao_);
     glDrawElements(gl::GLenum::GL_TRIANGLES,
                    static_cast<gl::GLsizei>(indices_.size()),

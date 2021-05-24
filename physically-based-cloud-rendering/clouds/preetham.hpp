@@ -1,9 +1,9 @@
 #pragma once
 
+#include "transforms.hpp"
+
 #include <glm/mat3x3.hpp>
 #include <glm/vec3.hpp>
-
-#include "transforms.hpp"
 
 [[nodiscard]] inline auto Yxy_to_XYZ(glm::vec3 Yxy) -> glm::vec3
 {
@@ -33,7 +33,6 @@
     return XYZ * M;
 }
 
-
 [[nodiscard]] inline auto saturated_dot(glm::vec3 a, glm::vec3 b) -> float { return glm::max(dot(a, b), 0.0F); }
 
 [[nodiscard]] inline auto Yxy_to_RGB(glm::vec3 Yxy) -> glm::vec3
@@ -44,11 +43,11 @@
 }
 
 inline auto calculate_perez_distribution(float      t,
-                                         glm::vec3& A,
-                                         glm::vec3& B,
-                                         glm::vec3& C,
-                                         glm::vec3& D,
-                                         glm::vec3& E) -> void
+                                         glm::vec3 &A,
+                                         glm::vec3 &B,
+                                         glm::vec3 &C,
+                                         glm::vec3 &D,
+                                         glm::vec3 &E) -> void
 {
     A = glm::vec3(0.1787F * t - 1.4630F, -0.0193F * t - 0.2592F, -0.0167F * t - 0.2608F);
     B = glm::vec3(-0.3554F * t + 0.4275F, -0.0665F * t + 0.0008F, -0.0950F * t + 0.0092F);
@@ -67,13 +66,9 @@ inline auto calculate_perez_distribution(float      t,
     const auto T      = t;
     const auto T2     = t * t;
 
-    const auto xz = (0.00165F * theta3 - 0.00375F * theta2 + 0.00209F * thetaS + 0.0F) * T2 + (
-                        -0.02903F * theta3 + 0.06377F * theta2 - 0.03202F * thetaS + 0.00394F) * T + (
-                        0.11693F * theta3 - 0.21196F * theta2 + 0.06052F * thetaS + 0.25886F);
+    const auto xz = (0.00165F * theta3 - 0.00375F * theta2 + 0.00209F * thetaS + 0.0F) * T2 + (-0.02903F * theta3 + 0.06377F * theta2 - 0.03202F * thetaS + 0.00394F) * T + (0.11693F * theta3 - 0.21196F * theta2 + 0.06052F * thetaS + 0.25886F);
 
-    const auto yz = (0.00275F * theta3 - 0.00610F * theta2 + 0.00317F * thetaS + 0.0F) * T2 + (
-                        -0.04214F * theta3 + 0.08970F * theta2 - 0.04153F * thetaS + 0.00516F) * T + (
-                        0.15346F * theta3 - 0.26756F * theta2 + 0.06670F * thetaS + 0.26688F);
+    const auto yz = (0.00275F * theta3 - 0.00610F * theta2 + 0.00317F * thetaS + 0.0F) * T2 + (-0.04214F * theta3 + 0.08970F * theta2 - 0.04153F * thetaS + 0.00516F) * T + (0.15346F * theta3 - 0.26756F * theta2 + 0.06670F * thetaS + 0.26688F);
 
     return glm::vec3(Yz, xz, yz);
 }
@@ -86,8 +81,7 @@ inline auto calculate_perez_distribution(float      t,
                                                         glm::vec3 D,
                                                         glm::vec3 E) -> glm::vec3
 {
-    return (1.0F + A * exp(B / glm::max(0.00001F, cos(theta)))) * (
-               1.0F + C * exp(D * gamma) + E * cos(gamma) * cos(gamma));
+    return (1.0F + A * exp(B / glm::max(0.00001F, cos(theta)))) * (1.0F + C * exp(D * gamma) + E * cos(gamma) * cos(gamma));
 }
 
 [[nodiscard]] inline auto calculate_sky_luminance_RGB(glm::vec3 s, glm::vec3 e, float t) -> glm::vec3

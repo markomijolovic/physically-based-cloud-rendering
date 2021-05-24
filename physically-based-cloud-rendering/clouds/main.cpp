@@ -1,28 +1,24 @@
 #define GLFW_INCLUDE_NONE
 
-#include <algorithm>
-#include <chrono>
-#include <iostream>
-#include <string_view>
-
+#include "GLFW/glfw3.h"
 #include "camera.hpp"
 #include "framebuffer.hpp"
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
+#include "glbinding/gl/gl.h"
+#include "glbinding/glbinding.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
 #include "input.hpp"
 #include "mesh.hpp"
 #include "preetham.hpp"
 #include "shader.hpp"
 #include "stb_image.h"
 #include "transforms.hpp"
-#include "glbinding/glbinding.h"
-#include "glbinding/gl/gl.h"
-#include "GLFW/glfw3.h"
 
+#include <chrono>
+#include <string_view>
 
-struct configuration_t
-{
+struct configuration_t {
     std::string_view weather_map{};
     float            base_scale{};
     float            detail_scale{};
@@ -47,27 +43,22 @@ auto main() -> int
         glm::vec3{-1.0F, -1.0F, 0.0F},
         glm::vec3{1.0F, -1.0F, 0.0F},
         glm::vec3{1.0F, 1.0F, 0.0F},
-        glm::vec3{-1.0F, 1.0F, 0.0F}
-    };
+        glm::vec3{-1.0F, 1.0F, 0.0F}};
 
     const auto full_screen_quad_uvs = std::vector{
         glm::vec2{0.0F, 0.0F},
         glm::vec2{1.0F, 0.0F},
         glm::vec2{1.0F, 1.0F},
-        glm::vec2{0.0F, 1.0F}
-    };
+        glm::vec2{0.0F, 1.0F}};
 
     const auto full_screen_quad_indices = std::vector{0U, 1U, 2U, 2U, 3U, 0U};
 
     auto camera = camera_t{
         perspective(90.0F, static_cast<float>(screen_width) / screen_height, 0.01F, 100000.0F),
-        {{0.0F, 10.0F, 0.0F, 1.0F}, {}, {1.0F, 1.0F, 1.0F}}
-    };
-
+        {{0.0F, 10.0F, 0.0F, 1.0F}, {}, {1.0F, 1.0F, 1.0F}}};
 
     auto configurations = std::array{
-        configuration_t
-        {
+        configuration_t{
             "perlin_test_cumulus",
             60000,
             1500,
@@ -80,8 +71,7 @@ auto main() -> int
             0.00F,
             0.06F,
             0.06F,
-            0.0F
-        },
+            0.0F},
         configuration_t{
             "perlin_test_stratocumulus",
             40000,
@@ -95,8 +85,7 @@ auto main() -> int
             0.0F,
             0.033F,
             0.033F,
-            0.0F
-        },
+            0.0F},
         configuration_t{
             "perlin_test_stratus",
             60000,
@@ -110,8 +99,7 @@ auto main() -> int
             0.0F,
             0.02F,
             0.02F,
-            1.0F
-        },
+            1.0F},
         configuration_t{
             "custom_cumulus",
             15000,
@@ -125,8 +113,7 @@ auto main() -> int
             0.0F,
             0.06F,
             0.06F,
-            1.0F
-        },
+            1.0F},
     };
 
     auto weather_maps = std::unordered_map<std::string_view, texture_t<2U>>{};
@@ -136,16 +123,14 @@ auto main() -> int
         normalize(glm::vec3{1, 0.01, 0}),
         glm::vec3{-1, 0.01, 0},
         glm::vec3{0, 0.01, 1},
-        glm::vec3{0, 0.01, -1}
-    };
+        glm::vec3{0, 0.01, -1}};
 
     const auto arr_down = std::array{
         normalize(glm::vec3{0, -1, 0}),
         normalize(glm::vec3{1, -0.01, 0}),
         glm::vec3{-1, -0.01, 0},
         glm::vec3{0, -0.01, 1},
-        glm::vec3{0, -0.01, -1}
-    };
+        glm::vec3{0, -0.01, -1}};
 
     auto radio_button_value{3};
     auto cfg_value{0};
@@ -169,7 +154,9 @@ auto main() -> int
     auto sun_direction_normalized{glm::vec3{}};
 
     // init glfw
-    if (glfwInit() == 0) { std::exit(-1); }
+    if (glfwInit() == 0) {
+        std::exit(-1);
+    }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -177,7 +164,9 @@ auto main() -> int
     glfwWindowHint(GLFW_RESIZABLE, 0);
 
     const auto window = glfwCreateWindow(screen_width, screen_height, "clouds", nullptr, nullptr);
-    if (window == nullptr) { std::exit(-1); }
+    if (window == nullptr) {
+        std::exit(-1);
+    }
 
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetKeyCallback(window, key_callback);
@@ -207,8 +196,7 @@ auto main() -> int
         "textures/mie_phase_function_normalized.hdr",
         gl::GLenum::GL_RGB32F,
         gl::GLenum::GL_RGB,
-        gl::GLenum::GL_FLOAT
-    };
+        gl::GLenum::GL_FLOAT};
     weather_maps["perlin_test_stratus"]       = texture_t<2U>{512U, 512U, 0U, "textures/perlin_test_stratus.tga"};
     weather_maps["perlin_test_stratocumulus"] = texture_t<2U>{512U, 512U, 0U, "textures/perlin_test_stratocumulus.tga"};
     weather_maps["perlin_test_cumulus"]       = texture_t<2U>{512U, 512U, 0U, "textures/perlin_test_cumulus.tga"};
@@ -216,9 +204,9 @@ auto main() -> int
     const auto blue_noise_texture             = texture_t<2U>(512U, 512U, 0U, "textures/blue_noise.png");
 
     const auto quad               = mesh_t{full_screen_quad_positions, full_screen_quad_uvs, full_screen_quad_indices};
-    const auto raymarching_shader = shader_t{"raymarch.vert", "raymarch.frag"};
-    const auto blur_shader        = shader_t{"raymarch.vert", "blur.frag"};
-    const auto tonemap_shader     = shader_t{"raymarch.vert", "tonemap.frag"};
+    const auto raymarching_shader = shader_t{"shaders/raymarch.vert", "shaders/raymarch.frag"};
+    const auto blur_shader        = shader_t{"shaders/raymarch.vert", "shaders/blur.frag"};
+    const auto tonemap_shader     = shader_t{"shaders/raymarch.vert", "shaders/tonemap.frag"};
 
     gl::glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
 
@@ -232,8 +220,7 @@ auto main() -> int
     auto cumulative_time{0.0F};
     auto now = std::chrono::high_resolution_clock::now();
 
-    while (glfwWindowShouldClose(window) == 0)
-    {
+    while (glfwWindowShouldClose(window) == 0) {
         glfwPollEvents();
 
         delta_time = std::chrono::duration<float, std::milli>(std::chrono::high_resolution_clock::now() - now).count();
@@ -242,10 +229,10 @@ auto main() -> int
 
         process_input(delta_time, camera);
 
-        std::cout << "Delta time: " << delta_time << std::endl;
+        //std::cout << "Delta time: " << delta_time << std::endl;
 
         // raymarching
-        auto& cfg = configurations[cfg_value];
+        auto &cfg = configurations[cfg_value];
         framebuffer2.bind();
         glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
         raymarching_shader.use();
@@ -258,8 +245,7 @@ auto main() -> int
         raymarching_shader.set_uniform("weather_map", 3);
         raymarching_shader.set_uniform("use_blue_noise", blue_noise);
 
-        if (blue_noise)
-        {
+        if (blue_noise) {
             blue_noise_texture.bind(4);
             raymarching_shader.set_uniform("blue_noise", 4);
         }
@@ -267,7 +253,7 @@ auto main() -> int
         raymarching_shader.set_uniform("mie_texture", 5);
 
         raymarching_shader.set_uniform("projection", camera.projection);
-        raymarching_shader.set_uniform("view", camera.transform.get_view_matrix());
+        raymarching_shader.set_uniform("view", get_view_matrix(camera.transform));
         raymarching_shader.set_uniform("camera_pos", glm::vec3{camera.transform.position});
         raymarching_shader.set_uniform("low_frequency_noise_visualization", static_cast<int>(radio_button_value == 2));
         raymarching_shader.set_uniform("high_frequency_noise_visualization", static_cast<int>(radio_button_value == 3));
@@ -303,16 +289,14 @@ auto main() -> int
         // use average of 5 samples as ambient radiance
         // this could really be improved (and done on the GPU as well)
         auto ambient_luminance_up{glm::vec3{}};
-        for (const auto& el : arr_up)
-        {
+        for (const auto &el: arr_up) {
             ambient_luminance_up += 1000.0F * calculate_sky_luminance_RGB(-sun_direction_normalized, el, turbidity);
         }
         ambient_luminance_up /= 5.0F;
         raymarching_shader.set_uniform("ambient_luminance_up", ambient_luminance_up);
 
         auto ambient_luminance_down{glm::vec3{}};
-        for (const auto& el : arr_down)
-        {
+        for (const auto &el: arr_down) {
             ambient_luminance_down += 1000.0F * calculate_sky_luminance_RGB(-sun_direction_normalized, el, turbidity);
         }
         ambient_luminance_down /= 5.0F;
@@ -320,24 +304,19 @@ auto main() -> int
 
         quad.draw();
 
-        if (blur)
-        {
+        if (blur) {
             // gaussian blur
             auto horizontal = true;
             auto amount     = 4;
             blur_shader.use();
             blur_shader.set_uniform("full_screen", 0);
-            for (auto i = 0; i < amount; i++)
-            {
-                if (horizontal)
-                {
+            for (auto i = 0; i < amount; i++) {
+                if (horizontal) {
                     framebuffer3.bind();
-                    framebuffer2.colour_attachments.front().bind(0);
-                }
-                else
-                {
+                    framebuffer2.colour_attachments().front().bind(0);
+                } else {
                     framebuffer2.bind();
-                    framebuffer3.colour_attachments.front().bind(0);
+                    framebuffer3.colour_attachments().front().bind(0);
                 }
                 blur_shader.set_uniform("horizontal", horizontal);
 
@@ -350,14 +329,13 @@ auto main() -> int
         glClear(gl::ClearBufferMask::GL_COLOR_BUFFER_BIT | gl::ClearBufferMask::GL_DEPTH_BUFFER_BIT);
         tonemap_shader.use();
 
-        framebuffer2.colour_attachments.front().bind(0);
+        framebuffer2.colour_attachments().front().bind(0);
         tonemap_shader.set_uniform("full_screen", 0);
         tonemap_shader.set_uniform("exposure_factor", exposure_factor);
         quad.draw();
 
         // render gui
-        if (options())
-        {
+        if (options()) {
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();

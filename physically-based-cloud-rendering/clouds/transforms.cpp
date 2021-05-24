@@ -1,6 +1,6 @@
 #include "transforms.hpp"
 
-[[nodiscard]] auto translate(float x, float y, float z) -> glm::mat4x4
+auto translate(float x, float y, float z) -> glm::mat4x4
 {
     auto retval  = glm::mat4x4{1.0F};
     retval[3][0] = x;
@@ -9,9 +9,9 @@
     return retval;
 }
 
-[[nodiscard]] auto translate(const glm::vec3& vec3) -> glm::mat4x4 { return translate(vec3.x, vec3.y, vec3.z); }
+auto translate(const glm::vec3 &vec3) -> glm::mat4x4 { return translate(vec3.x, vec3.y, vec3.z); }
 
-[[nodiscard]] auto scale(float x, float y, float z) -> glm::mat4x4
+auto scale(float x, float y, float z) -> glm::mat4x4
 {
     auto retval = glm::mat4x4{1.0F};
     retval[0][0] *= x;
@@ -20,11 +20,11 @@
     return retval;
 }
 
-[[nodiscard]] auto scale(const glm::vec3& vec3) -> glm::mat4x4 { return scale(vec3.x, vec3.y, vec3.z); }
+auto scale(const glm::vec3 &vec3) -> glm::mat4x4 { return scale(vec3.x, vec3.y, vec3.z); }
 
-[[nodiscard]] auto scale(float x) -> glm::mat4x4 { return scale(x, x, x); }
+auto scale(float x) -> glm::mat4x4 { return scale(x, x, x); }
 
-[[nodiscard]] auto rotate(float angle, const glm::vec3& axis_) -> glm::mat4x4
+auto rotate(float angle, const glm::vec3 &axis_) -> glm::mat4x4
 {
     const auto axis = normalize(axis_);
     const auto s    = std::sin(angle);
@@ -47,11 +47,10 @@
         0.0F,
         0.0F,
         0.0F,
-        1.0F
-    };
+        1.0F};
 }
 
-[[nodiscard]] auto perspective(float fov_y, float aspect, float z_near, float z_far) -> glm::mat4x4
+auto perspective(float fov_y, float aspect, float z_near, float z_far) -> glm::mat4x4
 {
     const auto theta = radians(fov_y / 2);
     const auto d     = cos(theta) / sin(theta);

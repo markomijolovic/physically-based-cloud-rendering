@@ -2,78 +2,74 @@
 
 #include <algorithm>
 
-float hash(float n)
+auto hash(float n) noexcept -> float
 {
-	return glm::fract(sin(n + 1.951F) * 43758.5453F);
+    return glm::fract(sin(n + 1.951F) * 43758.5453F);
 }
 
-float noise(const glm::vec3& x)
+auto noise(glm::vec3 x) noexcept -> float
 {
-	const auto p = floor(x);
-	auto       f = fract(x);
+    const auto p = floor(x);
+    auto       f = fract(x);
 
-	f            = f * f * (glm::vec3(3.0F) - glm::vec3(2.0F) * f);
-	const auto n = p.x + p.y * 57.0F + 113.0F * p.z;
-	return glm::mix(
-	                glm::mix(
-	                         glm::mix(hash(n + 0.0F), hash(n + 1.0F), f.x),
-	                         glm::mix(hash(n + 57.0F), hash(n + 58.0F), f.x),
-	                         f.y),
-	                glm::mix(
-	                         glm::mix(hash(n + 113.0F), hash(n + 114.0F), f.x),
-	                         glm::mix(hash(n + 170.0F), hash(n + 171.0F), f.x),
-	                         f.y),
-	                f.z);
+    f            = f * f * (glm::vec3(3.0F) - glm::vec3(2.0F) * f);
+    const auto n = p.x + p.y * 57.0F + 113.0F * p.z;
+    return glm::mix(
+        glm::mix(
+            glm::mix(hash(n + 0.0F), hash(n + 1.0F), f.x),
+            glm::mix(hash(n + 57.0F), hash(n + 58.0F), f.x),
+            f.y),
+        glm::mix(
+            glm::mix(hash(n + 113.0F), hash(n + 114.0F), f.x),
+            glm::mix(hash(n + 170.0F), hash(n + 171.0F), f.x),
+            f.y),
+        f.z);
 }
 
-float cells(const glm::vec3& p, float cell_count)
+auto cells(const glm::vec3 &p, float cell_count) noexcept -> float
 {
-	const auto p_cell = p * cell_count;
-	float      d      = 1.0e10;
-	for (auto xo = -1; xo <= 1; xo++)
-	{
-		for (auto yo = -1; yo <= 1; yo++)
-		{
-			for (auto zo = -1; zo <= 1; zo++)
-			{
-				auto tp = floor(p_cell) + glm::vec3(xo, yo, zo);
+    const auto p_cell = p * cell_count;
+    float      d      = 1.0e10;
+    for (auto xo = -1; xo <= 1; xo++) {
+        for (auto yo = -1; yo <= 1; yo++) {
+            for (auto zo = -1; zo <= 1; zo++) {
+                auto tp = floor(p_cell) + glm::vec3(xo, yo, zo);
 
-				tp = p_cell - tp - noise(mod(tp, cell_count / 1));
+                tp = p_cell - tp - noise(mod(tp, cell_count / 1));
 
-				d = glm::min(d, dot(tp, tp));
-			}
-		}
-	}
+                d = glm::min(d, dot(tp, tp));
+            }
+        }
+    }
 
-	return std::clamp(d, 0.0F, 1.0F);
+    return std::clamp(d, 0.0F, 1.0F);
 }
 
-float worley(const glm::vec3& point, float cell_count)
+auto worley(glm::vec3 point, float cell_count) noexcept -> float
 {
-	return cells(point, cell_count);
+    return cells(point, cell_count);
 }
 
-float perlin(const glm::vec3& p, float frequency, int octave_count)
+auto perlin(glm::vec3 p, float frequency, int octave_count) noexcept -> float
 {
-	constexpr auto octave_frequency_factor = 2.0F;
+    constexpr auto octave_frequency_factor = 2.0F;
 
-	float sum{};
-	float weight_sum{};
-	auto  weight = 0.5F;
+    float sum{};
+    float weight_sum{};
+    auto  weight = 0.5F;
 
-	for (auto octave = 0; octave < octave_count; octave++)
-	{
-		auto p_out = glm::vec4{ p.x, p.y, p.z, 0.0F } *frequency;
+    for (auto octave = 0; octave < octave_count; octave++) {
+        auto p_out = glm::vec4{p.x, p.y, p.z, 0.0F} * frequency;
 
-		auto val = glm::perlin(p_out, glm::vec4{ frequency });
+        const auto val = glm::perlin(p_out, glm::vec4{frequency});
 
-		sum += val * weight;
-		weight_sum += weight;
-		
-		weight *= weight;
-		frequency *= octave_frequency_factor;
-	}
+        sum += val * weight;
+        weight_sum += weight;
 
-	const auto noise = sum / weight_sum * 0.5F + 0.5F;
-	return std::clamp(noise, 0.0F, 1.0F);
+        weight *= weight;
+        frequency *= octave_frequency_factor;
+    }
+
+    const auto noise = sum / weight_sum * 0.5F + 0.5F;
+    return std::clamp(noise, 0.0F, 1.0F);
 }
